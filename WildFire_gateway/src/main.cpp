@@ -8,6 +8,14 @@
 #define RST 26
 #define DIO0 25
 
+union FloatToByte
+{
+  float asFloat;
+  uint8_t asByte[4];
+};
+
+FloatToByte temp,humid;
+
 TaskHandle_t receiveNode_handle = NULL;
 
 void LoRa_rxMode()
@@ -24,13 +32,36 @@ void LoRa_txMode()
 
 void onReceive(int packetSize)
 {
-  Serial.print("Gateway Receive: ");
+  static uint8_t buffer[20];
+  uint8_t index = 0;
   while (LoRa.available())
   {
-    uint8_t buff = (uint8_t)LoRa.read();
-    Serial.write(buff);
+    buffer[index] = (uint8_t)LoRa.read();
+    if(index == 0 && buffer[0] != 'n')
+      index = 0;
+    if(buffer[index - 9] == 'n' && buffer[index - 8] == 'o')
+    {
+      temp.asByte[0] = buffer[index - 7];
+      temp.asByte[1] = buffer[index - 6];
+      temp.asByte[2] = buffer[index - 5];
+      temp.asByte[3] = buffer[index - 4];
+
+      humid.asByte[0] = buffer[index - 3];
+      humid.asByte[1] = buffer[index - 2];
+      humid.asByte[2] = buffer[index - 1];
+      humid.asByte[3] = buffer[index];
+
+      Serial.print("temp : ");
+      Serial.print(temp.asFloat);
+      Serial.print(" humid : ");
+      Serial.println(humid.asFloat);
+      // Serial.printf("%d %d %d %d\n",temp.asByte[0],temp.asByte[1],temp.asByte[2],temp.asByte[3]);
+      index = 0;
+    }
+
+    index >= 20? index = 0 : index++;
+
   }
-  Serial.println();
 }
 
 void onTxDone()
