@@ -3,6 +3,13 @@
 #include <DHT.h>
 #include <LoRa.h>
 
+#define SCK 14
+#define MISO 12
+#define MOSI 13
+#define SS 27
+#define RST 26
+#define DIO0 25
+
 //----------CPU0 Handle----------//
 TaskHandle_t readDHT_handle = NULL;
 TaskHandle_t readSmoke_handle = NULL;
@@ -103,8 +110,9 @@ void setup()
 
   Serial.begin(9600);
 
-  SPI.begin(14, 12, 13, 27);
-  LoRa.setPins(27, 26, 25);
+  //setup LoRa module (sx1276) with frequency 923.2 MHz
+  SPI.begin(SCK, MISO, MOSI, SS);
+  LoRa.setPins(SS, RST, DIO0);
   if (!LoRa.begin(923.2E6))
   {
     Serial.println("Starting LoRa failed!");

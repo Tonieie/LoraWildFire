@@ -1,64 +1,57 @@
 #include <Arduino.h>
 #include <LoRa.h>
 
-
+#define SCK 14
+#define MISO 12
+#define MOSI 13
+#define SS 27
+#define RST 26
+#define DIO0 25
 
 TaskHandle_t receiveNode_handle = NULL;
 
-// void receiveNode(void *pvParam)
-// {
-  
-//   int packetSize = LoRa.parsePacket();
-//   if (packetSize) {
-//     // received a packet
-//     Serial.print("Received packet '");
-
-//     // read packet
-//     while (LoRa.available()) {
-//       Serial.print((char)LoRa.read());
-//     }
-
-//     // print RSSI of packet
-//     Serial.print("' with RSSI ");
-//     Serial.println(LoRa.packetRssi());
-//   }
-//   vTaskDelete(NULL);
-// }
-
-void LoRa_rxMode(){
-  LoRa.disableInvertIQ();               // normal mode
-  LoRa.receive();                       // set receive mode
+void LoRa_rxMode()
+{
+  LoRa.disableInvertIQ(); // normal mode
+  LoRa.receive();         // set receive mode
 }
 
-void LoRa_txMode(){
-  LoRa.idle();                          // set standby mode
-  LoRa.enableInvertIQ();                // active invert I and Q signals
+void LoRa_txMode()
+{
+  LoRa.idle();           // set standby mode
+  LoRa.enableInvertIQ(); // active invert I and Q signals
 }
 
-void onReceive(int packetSize) {
+void onReceive(int packetSize)
+{
   Serial.print("Gateway Receive: ");
-  while (LoRa.available()) {
-    uint8_t buff = (uint8_t) LoRa.read();
+  while (LoRa.available())
+  {
+    uint8_t buff = (uint8_t)LoRa.read();
     Serial.write(buff);
   }
   Serial.println();
- 
 }
 
-void onTxDone() {
+void onTxDone()
+{
   Serial.println("TxDone");
   LoRa_rxMode();
 }
 
-void setup() {
-  // put your setup code here, to run once:
+void setup()
+{
+
   Serial.begin(9600);
 
-  SPI.begin(14,12,13,27);
-  LoRa.setPins(27,26,25);
-  if (!LoRa.begin(923.2E6)) {
+  //setup LoRa module (sx1276) with frequency 923.2 MHz
+  SPI.begin(SCK, MISO, MOSI, SS);
+  LoRa.setPins(SS, RST, DIO0);
+  if (!LoRa.begin(923.2E6))
+  {
     Serial.println("Starting LoRa failed!");
-    while (1);
+    while (1)
+      ;
   }
 
   // xTaskCreatePinnedToCore(receiveNode, "receiveNode", 10000, NULL, 0, &receiveNode_handle, 0);
@@ -66,9 +59,9 @@ void setup() {
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
   LoRa_rxMode();
-
 }
 
-void loop() {
+void loop()
+{
   // put your main code here, to run repeatedly:
 }
