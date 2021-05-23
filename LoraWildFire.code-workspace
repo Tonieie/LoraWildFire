@@ -1,6 +1,9 @@
 {
 	"folders": [
 		{
+			"path": "WildFire_gateway"
+		},
+		{
 			"path": "WildFire_node"
 		}
 	]
