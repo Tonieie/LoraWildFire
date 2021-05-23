@@ -61,27 +61,17 @@ void LoRa_txMode()
   LoRa.disableInvertIQ(); // normal mode
 }
 
-void LoRa_sendMessage(uint8_t *payload, uint8_t payload_size)
-{
-  LoRa_txMode();      // set tx mode
-  LoRa.beginPacket(); // start packet
-  for (int i = 0; i < payload_size; i++)
-  {
-    // LoRa.print(payload[i]); // add payload
-    LoRa.write(payload[i]);
-  }
-  LoRa.endPacket(true); // finish packet and send it
-}
-
 void sentToGw(void *pvParam)
 {
   while (1)
   {
-    uint8_t payload[] = {110, 111, 100, 101};
+    LoRa_txMode();
+    LoRa.beginPacket();
+    LoRa.print("no");
+    LoRa.write(temp.asByte,4);
+    LoRa.write(humid.asByte,4);
+    LoRa.endPacket(true);
 
-    LoRa_sendMessage(payload, 4);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    LoRa_sendMessage(temp.asByte, 4);
     vTaskDelay(pdMS_TO_TICKS(5000));
   }
 }
