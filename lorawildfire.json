@@ -1,0 +1,16 @@
+{
+	"node1" : 
+		{
+			"temp" : 0,
+			"humid" : 0,
+			"smoke" : 0,
+			"switch" : 0,
+		},
+	"node2" : 
+		{
+			"temp" : 0,
+			"humid" : 0,
+			"smoke" : 0,
+			"switch" : 0,
+		}
+}
