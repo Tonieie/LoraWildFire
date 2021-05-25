@@ -1,5 +1,17 @@
 #include <Arduino.h>
 #include <LoRa.h>
+#include <WiFi.h>
+#include <IOXhop_FirebaseESP32.h>
+
+#define WIFI_SSID "tonieie"
+#define WIFI_PASSWORD "78787862x"
+
+#define FIREBASE_HOST "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
+#define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
+
+// FirebaseData fbdt;
+
+TaskHandle_t firebase_taskhandle = NULL;
 
 #define SCK 14
 #define MISO 12
@@ -14,9 +26,7 @@ union FloatToByte
   uint8_t asByte[4];
 };
 
-FloatToByte temp,humid;
-
-TaskHandle_t receiveNode_handle = NULL;
+FloatToByte temp, humid;
 
 void LoRa_rxMode()
 {
@@ -37,9 +47,9 @@ void onReceive(int packetSize)
   while (LoRa.available())
   {
     buffer[index] = (uint8_t)LoRa.read();
-    if(index == 0 && buffer[0] != 'n')
+    if (index == 0 && buffer[0] != 'n')
       index = 0;
-    if(buffer[index - 9] == 'n' && buffer[index - 8] == 'o')
+    if (buffer[index - 9] == 'n' && buffer[index - 8] == 'o')
     {
       temp.asByte[0] = buffer[index - 7];
       temp.asByte[1] = buffer[index - 6];
@@ -55,12 +65,10 @@ void onReceive(int packetSize)
       Serial.print(temp.asFloat);
       Serial.print(" humid : ");
       Serial.println(humid.asFloat);
-      // Serial.printf("%d %d %d %d\n",temp.asByte[0],temp.asByte[1],temp.asByte[2],temp.asByte[3]);
       index = 0;
     }
 
-    index >= 20? index = 0 : index++;
-
+    index >= 20 ? index = 0 : index++;
   }
 }
 
@@ -68,6 +76,25 @@ void onTxDone()
 {
   Serial.println("TxDone");
   LoRa_rxMode();
+}
+
+void firebase_task(void *pvParam)
+{
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(300);
+  }
+
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  for (;;)
+  {
+    Firebase.setFloat("node1/temp", temp.asFloat);
+    Firebase.setFloat("node1/humid", humid.asFloat);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+  }
 }
 
 void setup()
@@ -85,7 +112,7 @@ void setup()
       ;
   }
 
-  // xTaskCreatePinnedToCore(receiveNode, "receiveNode", 10000, NULL, 0, &receiveNode_handle, 0);
+  xTaskCreatePinnedToCore(firebase_task, "firebase_task", 10000, NULL, 0, &firebase_taskhandle, 0);
 
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
@@ -95,4 +122,6 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
+  
+  
 }
