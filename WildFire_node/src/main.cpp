@@ -22,6 +22,9 @@ TaskHandle_t receiveFromGw_handle = NULL;
 TaskHandle_t ctrlLed_handle = NULL;
 
 //----------Params----------//
+#define DHTPIN 15
+DHT dht(DHTPIN, DHT11);
+
 union FloatToByte
 {
   float asFloat;
@@ -35,20 +38,8 @@ uint8_t util_byte = 0;
 #define smoke_bit 1
 #define led_bit 2
 
-//----------CPU0 Task----------//
-DHT dht(15, DHT11);
 
-void readDHT(void *pvParam)
-{
-  while (1)
-  {
-    temp.asFloat = dht.readTemperature();
-    humid.asFloat = dht.readHumidity();
-
-    vTaskDelay(pdMS_TO_TICKS(10000));
-  }
-}
-
+//----------Gateway - Node functions----------//
 void LoRa_rxMode()
 {
   LoRa.enableInvertIQ(); // active invert I and Q signals
@@ -59,21 +50,6 @@ void LoRa_txMode()
 {
   LoRa.idle();            // set standby mode
   LoRa.disableInvertIQ(); // normal mode
-}
-
-void sentToGw(void *pvParam)
-{
-  while (1)
-  {
-    LoRa_txMode();
-    LoRa.beginPacket();
-    LoRa.print("no");
-    LoRa.write(temp.asByte,4);
-    LoRa.write(humid.asByte,4);
-    LoRa.endPacket(true);
-
-    vTaskDelay(pdMS_TO_TICKS(5000));
-  }
 }
 
 void onReceive(int packetSize)
@@ -94,6 +70,35 @@ void onTxDone()
   Serial.println("TxDone");
   LoRa_rxMode();
 }
+
+
+//----------CPU0 Task----------//
+void readDHT(void *pvParam)
+{
+  while (1)
+  {
+    temp.asFloat = dht.readTemperature();
+    humid.asFloat = dht.readHumidity();
+
+    vTaskDelay(pdMS_TO_TICKS(30000));
+  }
+}
+
+void sentToGw(void *pvParam)
+{
+  while (1)
+  {
+    LoRa_txMode();
+    LoRa.beginPacket();
+    LoRa.print("no");
+    LoRa.write(temp.asByte,4);
+    LoRa.write(humid.asByte,4);
+    LoRa.endPacket(true);
+
+    vTaskDelay(pdMS_TO_TICKS(30000));
+  }
+}
+
 
 void setup()
 {
