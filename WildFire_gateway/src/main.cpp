@@ -48,7 +48,7 @@ void onReceive(int packetSize)
     if (buffer[index - 11] == 'n' && buffer[index - 10] == 'o')
     {
 
-      for (int i = 11; i >= 0; i++)
+      for (int i = 11; i >= 0; i--)
         checksum += buffer[index - i];
 
       if (!checksum)
