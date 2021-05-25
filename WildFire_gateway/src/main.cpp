@@ -38,28 +38,39 @@ void onReceive(int packetSize)
 {
   static uint8_t buffer[20];
   uint8_t index = 0;
+  uint8_t checksum = 0;
   while (LoRa.available())
   {
     buffer[index] = (uint8_t)LoRa.read();
     if (index == 0 && buffer[0] != 'n')
       index = 0;
-    if (buffer[index - 9] == 'n' && buffer[index - 8] == 'o')
+
+    if (buffer[index - 11] == 'n' && buffer[index - 10] == 'o')
     {
-      temp.asByte[0] = buffer[index - 7];
-      temp.asByte[1] = buffer[index - 6];
-      temp.asByte[2] = buffer[index - 5];
-      temp.asByte[3] = buffer[index - 4];
 
-      humid.asByte[0] = buffer[index - 3];
-      humid.asByte[1] = buffer[index - 2];
-      humid.asByte[2] = buffer[index - 1];
-      humid.asByte[3] = buffer[index];
+      for (int i = 11; i >= 0; i++)
+        checksum += buffer[index - i];
 
-      Serial.print("temp : ");
-      Serial.print(temp.asFloat);
-      Serial.print(" humid : ");
-      Serial.println(humid.asFloat);
-      index = 0;
+      if (!checksum)
+      {
+        temp.asByte[0] = buffer[index - 9];
+        temp.asByte[1] = buffer[index - 8];
+        temp.asByte[2] = buffer[index - 7];
+        temp.asByte[3] = buffer[index - 6];
+
+        humid.asByte[0] = buffer[index - 5];
+        humid.asByte[1] = buffer[index - 4];
+        humid.asByte[2] = buffer[index - 3];
+        humid.asByte[3] = buffer[index - 2];
+
+        util_byte = buffer[index - 1];
+
+        Serial.print("temp : ");
+        Serial.print(temp.asFloat);
+        Serial.print(" humid : ");
+        Serial.println(humid.asFloat);
+        index = 0;
+      }
     }
 
     index >= 20 ? index = 0 : index++;
@@ -99,6 +110,8 @@ union FloatToByte
   uint8_t asByte[4];
 };
 FloatToByte temp, humid;
+
+uint8_t util_byte = 0;
 
 void setup()
 {

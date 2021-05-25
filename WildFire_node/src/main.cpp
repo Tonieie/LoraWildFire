@@ -88,11 +88,21 @@ void sentToGw(void *pvParam)
 {
   while (1)
   {
+    uint8_t checksum = 0;
+    uint8_t payload[] = {'n','o',
+                          temp.asByte[0],temp.asByte[1],temp.asByte[2],temp.asByte[3],
+                          humid.asByte[0],humid.asByte[1],humid.asByte[2],humid.asByte[3],
+                          util_byte
+                        };
     LoRa_txMode();
     LoRa.beginPacket();
-    LoRa.print("no");
-    LoRa.write(temp.asByte,4);
-    LoRa.write(humid.asByte,4);
+    for(int i = 0; i < sizeof(payload);i++)
+      {
+        LoRa.write(payload[i]);
+        checksum += payload[i];
+      }
+      checksum = ~(checksum) + 1;
+      LoRa.write(checksum);
     LoRa.endPacket(true);
 
     vTaskDelay(pdMS_TO_TICKS(30000));
