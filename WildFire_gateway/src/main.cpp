@@ -3,16 +3,7 @@
 #include <WiFi.h>
 #include <IOXhop_FirebaseESP32.h>
 
-#define WIFI_SSID "tonieie"
-#define WIFI_PASSWORD "78787862x"
-
-#define FIREBASE_HOST "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
-#define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
-
-// FirebaseData fbdt;
-
-TaskHandle_t firebase_taskhandle = NULL;
-
+//----------Pin define----------//
 #define SCK 14
 #define MISO 12
 #define MOSI 13
@@ -20,14 +11,17 @@ TaskHandle_t firebase_taskhandle = NULL;
 #define RST 26
 #define DIO0 25
 
-union FloatToByte
-{
-  float asFloat;
-  uint8_t asByte[4];
-};
+//----------Firebase & WiFi----------//
+#define WIFI_SSID "tonieie"
+#define WIFI_PASSWORD "78787862x"
 
-FloatToByte temp, humid;
+#define FIREBASE_HOST "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
+#define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
 
+//----------CPU0 Handle----------//
+TaskHandle_t firebase_taskhandle = NULL;
+
+//----------LoRa Tasks----------//
 void LoRa_rxMode()
 {
   LoRa.disableInvertIQ(); // normal mode
@@ -78,6 +72,7 @@ void onTxDone()
   LoRa_rxMode();
 }
 
+//----------CPU0 Tasks----------//
 void firebase_task(void *pvParam)
 {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -96,6 +91,14 @@ void firebase_task(void *pvParam)
     vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
+
+//----------Global Variable----------//
+union FloatToByte
+{
+  float asFloat;
+  uint8_t asByte[4];
+};
+FloatToByte temp, humid;
 
 void setup()
 {
@@ -122,6 +125,4 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  
-  
 }
