@@ -36,7 +36,7 @@ void LoRa_txMode()
 
 void onReceive(int packetSize)
 {
-  static uint8_t buffer[20];
+  static uint8_t buffer[24];
   uint8_t index = 0;
   uint8_t checksum = 0;
   while (LoRa.available())
@@ -73,7 +73,7 @@ void onReceive(int packetSize)
       }
     }
 
-    index >= 20 ? index = 0 : index++;
+    index >= 23 ? index = 0 : index++;
   }
 }
 
@@ -99,6 +99,7 @@ void firebase_task(void *pvParam)
   {
     Firebase.setFloat("node1/temp", temp.asFloat);
     Firebase.setFloat("node1/humid", humid.asFloat);
+    
     vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
