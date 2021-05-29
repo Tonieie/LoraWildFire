@@ -1,0 +1,26 @@
+<body>
+  <style>
+    .myCircle:hover {
+      stroke: rgb(255, 0, 0);
+    }
+    </style>
+    <meta charset="utf-8">
+    <h1>Node reading test</h1>
+    <!-- Load d3.js -->
+    <div id="my_dataviz"></div>
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="index.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-database.js"></script>
+    <script>
+        var config = {
+            apiKey: "AIzaSyDvs4yCvhcPnYBcGcL8svJMnOBWrts9vmg",
+            authDomain: "lorawildfire.firebaseapp.com",
+            databaseURL: "https://lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app",
+        };
+        firebase.initializeApp(config);
+
+    </script>
+
+</body>

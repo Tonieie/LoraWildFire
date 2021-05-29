@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "firebase": "^8.6.2",
+    "firebase-admin": "^9.8.0",
+    "service-account": "^1.0.2"
+  }
+}
