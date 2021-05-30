@@ -1,62 +1,97 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-  * {
-    box-sizing: border-box;
-  }
-  
-  /* Create three equal columns that floats next to each other */
-  .column {
-    float: left;
-    width: 33.33%;
-    padding: 10px;
-    /* height: 300px; Should be removed. Only for demonstration */
-  }
-  
-  /* Clear floats after the columns */
-  .row:after {
-    content: "";
-    display: table;
-    clear: both;
-  }
+    * {
+      box-sizing: border-box;
+    }
+
+    /* Create three equal columns that floats next to each other */
+    .column {
+      float: left;
+      width: 620px;
+      padding: 10px;
+      flex-direction: column;
+      border-right: 3px solid lightgrey;
+      /* height: 300px; Should be removed. Only for demonstration */
+    }
+
+    .img {
+      width: 50%;
+    }
+
+    /* Clear floats after the columns */
+    .row:after {
+      content: "";
+      display: table;
+      clear: both;
+    }
   </style>
-  </head>
+</head>
+
 <body>
   <style>
     .myCircle:hover {
       stroke: rgb(255, 0, 0);
     }
-    </style>
-    <meta charset="utf-8">
-    <h1>Node reading test</h1>
-    <div class="row">
-      <div class="column">
-        <div id="col11"></div>
-        <div id="col12"></div>
-      </div>
-      <div class="column">
-        <div id="col21"></div>
-        <div id="col22"></div>
-      </div>
-      <div class="column">
-        <div id="col31"></div>
-        <div id="col32"></div>
-      </div>
+  </style>
+  <meta charset="utf-8">
+  <h1>Node reading test</h1>
+  <div class="row">
+    <div class="column">
+      <h2>Gateway</h2>
+      <div id="col1_obj"><img id="gw_fire" src="img/fire_off.jpg" width="160" height="160"></div>
+      <div id="col11"></div>
+      <div id="col12"></div>
     </div>
+    <div class="column">
+      <h2>Node 1</h2>
+      <div id="col1_obj"><img id="node1_fire" src="img/fire_off.jpg" width="160" height="160"></div>
+      <div id="col21"></div>
+      <div id="col22"></div>
+    </div>
+    <div class="column">
+      <h2>Node 2</h2>
+      <div id="col1_obj"><img id="node2_fire" src="img/fire_off.jpg" width="160" height="160"></div>
+      <div id="col31"></div>
+      <div id="col32"></div>
+    </div>
+  </div>
 
-    <script src="https://d3js.org/d3.v4.js"></script>
-    <script src="index.js"></script>
+  <script src="https://d3js.org/d3.v4.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-database.js"></script>
+  <script src="index.js"></script>
+  
+  <script>
+    var config = {
+      apiKey: "AIzaSyDvs4yCvhcPnYBcGcL8svJMnOBWrts9vmg",
+      authDomain: "lorawildfire.firebaseapp.com",
+      databaseURL: "https://lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app",
+    };
+    firebase.initializeApp(config);
 
-    <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-database.js"></script>
-    <script>
-        var config = {
-            apiKey: "AIzaSyDvs4yCvhcPnYBcGcL8svJMnOBWrts9vmg",
-            authDomain: "lorawildfire.firebaseapp.com",
-            databaseURL: "https://lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app",
-        };
-        firebase.initializeApp(config);
+    var node1_ref = firebase.database().ref("node1");
+    node1_ref.on('child_added', (snapshot) => {
+      const data = snapshot.val();
+      if(data.timestamp == null)
+      {
+        var dd = new Date;
+        dd = dd.toString();
+        var last_child_ref = node1_ref.child("/" + snapshot.ref.key)
+        last_child_ref.update(
+          {
+            timestamp : dd
+          }
+        )
+      }
 
-    </script>
+      var fire_img = document.getElementById('node1_fire');
+        if(data.smoke == true)
+          fire_img.src = "img/fire_on.jpg"
+        else
+          fire_img.src = "img/fire_off.jpg"
+    });
+
+  </script>
 
 </body>
