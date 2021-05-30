@@ -5,6 +5,12 @@
 		},
 		{
 			"path": "WildFire_node"
+		},
+		{
+			"path": "WebDashboard"
 		}
-	]
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "WebDashboard"
+	}
 }

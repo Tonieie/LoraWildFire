@@ -7,10 +7,15 @@ var margin = { top: 10, right: 30, bottom: 30, left: 60 },
 d3.json("https://lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app/.json",
 
     function (data) {
-        draw(data, "node1")
+        draw(data, "node1",'#col11');
+        draw(data, "node1",'#col12');
+        draw(data, "node1",'#col21');
+        draw(data, "node1",'#col22');
+        draw(data, "node1",'#col31');
+        draw(data, "node1",'#col32');
     });
 
-function draw(data, node) {
+function draw(data, node, col) {
     var data = data[node];
 
     data.forEach(function (d) {
@@ -23,7 +28,7 @@ function draw(data, node) {
         .extent([[0, 0], [width, height]])
         .on("zoom", updateChart);
 
-    var svg = d3.select("#my_dataviz")
+    var svg = d3.select(col)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
@@ -37,7 +42,7 @@ function draw(data, node) {
         // .domain([Date.now() - 24 * 60 * 60 * 1000,Date.now()])
         .nice()
         .range([0, width]);
-    xAxis = svg.append("g")
+    var xAxis = svg.append("g")
         .attr("transform", "translate(0," + height + ")")
         .call(d3.axisBottom(x));
 
@@ -45,7 +50,7 @@ function draw(data, node) {
     var y = d3.scaleLinear()
         .domain([0, d3.max(data, function (d) { return +d.temp; }) + 2])
         .range([height, 0]);
-    yAxis = svg.append("g")
+    var yAxis = svg.append("g")
         .call(d3.axisLeft(y));
 
     var clip = svg.append("defs").append("svg:clipPath")
@@ -57,7 +62,7 @@ function draw(data, node) {
         .attr("y", 0);
         
     // create a tooltip
-    var Tooltip = d3.select("#my_dataviz")
+    var Tooltip = d3.select(col)
         .append("div")
         .style("opacity", 0)
         .attr("class", "tooltip")
@@ -75,8 +80,8 @@ function draw(data, node) {
     var mousemove = function (d) {
         Tooltip
             .html("Exact value: " + d.temp + "<br>" + d3.timeFormat("%X<br> %e %b %Y")(d.timestamp) + "</br>")
-            .style("left", d3.mouse(this)[0] + 80 + "px")
-            .style("top", d3.mouse(this)[1] + 10 + "px")
+            .style("left", (event.pageX) + 10 + "px")
+            .style("top", (event.pageY) - 70 + "px")
             .style("position", "absolute")
     }
     var mouseleave = function (d) {
