@@ -30,9 +30,20 @@
     .flex {
       display: flex;
       flex-wrap: wrap;
-      margin: 0 -10px;
       list-style: none;
       margin: 0 0 10 0;
+    }
+
+    .graph {
+      display: flex;
+      height: 430;
+      flex-wrap: wrap;
+      list-style: none;
+      margin: 0 0 10 0;
+    }
+
+    .timeframe{
+      
     }
   </style>
 </head>
@@ -50,17 +61,21 @@
       <h2>Gateway</h2>
       <div id="col1_obj">
         <ul class="flex">
-          <li><img id="gw_fire" src="img/fire_off.png" width="160" height="160"></li>
-          <li><img id="gw_sos" src="img/sos_off.png" width="160" height="160"></li>
-          <li style="margin: 0 0 0 20;"><img id="gw_batt" src="img/batt_full.png" width="160" height="160"></li>
+          <li><img id="gateway_fire" src="img/fire_off.png" width="160" height="160"></li>
+          <li><img id="gateway_sos" src="img/sos_off.png" width="160" height="160"></li>
+          <li style="margin: 0 0 0 20;"><img id="gateway_batt" src="img/batt_full.png" width="160" height="160"></li>
         </ul>
       </div>
-      <div id="col11"></div>
+      <div>
+        <ul class="graph">
+          <li><div id="col11"></div></li>
+        </ul>
+      </div>
       <div id="col12"></div>
     </div>
     <div class="column">
       <h2>Node 1</h2>
-      <div id="col1_obj">
+      <div id="col2_obj">
         <ul class="flex">
           <li><img id="node1_fire" src="img/fire_off.png" width="160" height="160"></li>
           <li><img id="node1_sos" src="img/sos_off.png" width="160" height="160"></li>
@@ -72,7 +87,7 @@
     </div>
     <div class="column">
       <h2>Node 2</h2>
-      <div id="col1_obj">
+      <div id="col3_obj">
         <ul class="flex">
           <li><img id="node2_fire" src="img/fire_off.png" width="160" height="160"></li>
           <li><img id="node2_sos" src="img/sos_off.png" width="160" height="160"></li>
@@ -97,13 +112,19 @@
     };
     firebase.initializeApp(config);
 
-    var node1_ref = firebase.database().ref("node1");
-    node1_ref.on('child_added', (snapshot) => {
+    updateData("gateway");
+    updateData("node1");
+    updateData("node2");
+
+    function updateData(ref)
+    {
+      var noderef = firebase.database().ref(ref);
+    noderef.on('child_added', (snapshot) => {
       const data = snapshot.val();
       if (data.timestamp == null) {
         var dd = new Date;
         dd = dd.toString();
-        var last_child_ref = node1_ref.child("/" + snapshot.ref.key)
+        var last_child_ref = noderef.child("/" + snapshot.ref.key)
         last_child_ref.update(
           {
             timestamp: dd
@@ -111,24 +132,26 @@
         )
       }
 
-      var fire_img = document.getElementById('node1_fire');
+      var fire_img = document.getElementById(ref + '_fire');
       if (data.smoke == true)
         fire_img.src = "img/fire_on.png"
       else
         fire_img.src = "img/fire_off.png"
 
-      var sos_img = document.getElementById('node1_sos');
+      var sos_img = document.getElementById(ref + '_sos');
       if (data.sos == true)
         sos_img.src = "img/sos_on.png"
       else
         sos_img.src = "img/sos_off.png"
 
-      var batt_img = document.getElementById('node1_batt');
+      var batt_img = document.getElementById(ref + '_batt');
       if (data.batt == true)
       batt_img.src = "img/batt_low.png"
       else
       batt_img.src = "img/batt_full.png"
     });
+    }
+    
 
   </script>
 

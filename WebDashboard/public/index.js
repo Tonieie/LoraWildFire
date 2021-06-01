@@ -7,12 +7,12 @@ var margin = { top: 20, right: 30, bottom: 30, left: 60 },
 d3.json("https://lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app/.json",
 
     function (data) {
-        draw(data, "node1",'#col11');
-        draw(data, "node1",'#col12');
+        draw(data, "gateway",'#col11');
+        draw(data, "gateway",'#col12');
         draw(data, "node1",'#col21');
         draw(data, "node1",'#col22');
-        draw(data, "node1",'#col31');
-        draw(data, "node1",'#col32');
+        draw(data, "node2",'#col31');
+        draw(data, "node2",'#col32');
     });
 
 function draw(data, node, col) {
