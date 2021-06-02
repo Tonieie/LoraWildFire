@@ -13,7 +13,7 @@
 
 //----------Firebase & WiFi----------//
 #define WIFI_SSID "tonieie"
-#define WIFI_PASSWORD "78787862x"
+#define WIFI_PASSWORD "PUTPASSWORDHERE"
 
 #define FIREBASE_HOST "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
 #define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
