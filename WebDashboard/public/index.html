@@ -12,6 +12,22 @@
       color: white;
       font-size: 30px;
       height: 100;
+
+    }
+
+    .sign {
+      margin: 0 0 10px 0;
+      background-color: salmon;
+      display: inline-block;
+      border-width: 1px;
+      border-style: solid;
+      border-radius: 10px;
+      border-color: white;
+    }
+
+    .sign>h2 {
+      padding: 2px 10 2 10;
+      color: seashell;
     }
 
 
@@ -22,7 +38,6 @@
       padding: 10px;
       flex-direction: column;
       border-right: 3px solid lightgrey;
-      /* height: 300px; Should be removed. Only for demonstration */
     }
 
     .img {
@@ -45,7 +60,6 @@
 
     .graph {
       display: flex;
-      height: 430;
       flex-wrap: wrap;
       list-style: none;
       margin: 0 0 10 0;
@@ -57,17 +71,44 @@
       stroke: rgb(255, 0, 0);
     }
   </style>
+
+  <style>
+    .btn-group .button {
+      background-color: #4CAF50;
+      border: 1px solid green;
+      color: white;
+      padding: 5px 10px;
+      text-align: center;
+      text-decoration: none;
+      font-size: 16px;
+      cursor: pointer;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .btn-group .button:not(:last-child) {
+      border-bottom: none;
+      /* Prevent double borders */
+    }
+
+    .btn-group .button:hover {
+      background-color: #3e8e41;
+    }
+  </style>
+
 </head>
 
-<body>
+<bod>
   <div class="header">
-    <h1 style="padding: 15;">LoRa Wildfire</h1>
+    <h1 style="padding: 15; margin: 0 0 0 0;">LoRa Wildfire</h1>
   </div>
 
   <meta charset="utf-8">
   <div class="row">
     <div class="column">
-      <h2>Gateway</h2>
+      <div class="sign">
+        <h2>Gateway</h2>
+      </div>
       <div id="col1_obj">
         <ul class="flex">
           <li><img id="gateway_fire" src="img/fire_off.png" width="160" height="160"></li>
@@ -76,22 +117,46 @@
         </ul>
       </div>
       <div>
+        <ul class="flex" style="margin: 20px 0 0 0;">
+          <li><img src="img/temp_icon.png" width="60" height="60"></li>
+          <li><h3 id="gateway_temp"></h3></li>
+        </ul>
         <ul class="graph">
           <li>
             <div id="col11"></div>
           </li>
+          <li>
+            <div class="btn-group">
+              <!-- <button class="button" onclick="tfClick('gateway','#col11',1)">day</button>
+              <button class="button" onclick="tfClick('gateway','#col11',7)">week</button>
+              <button class="button" onclick="tfClick('gateway','#col11',31)">month</button> -->
+            </div>
+          </li>
         </ul>
       </div>
       <div>
+        <ul class="flex" style="margin: 0px 0 0 0;">
+          <li><img src="img/humid_icon.png" width="50" height="50"></li>
+          <li><h3 id="gateway_humid"></h3></li>
+        </ul>
         <ul class="graph">
           <li>
             <div id="col12"></div>
+          </li>
+          <li>
+            <div class="btn-group">
+              <!-- <button class="button" id="gateway_humid_day">day</button>
+              <button class="button" id="gateway_humid_week">week</button>
+              <button class="button" id="gateway_humid_month">month</button> -->
+            </div>
           </li>
         </ul>
       </div>
     </div>
     <div class="column">
-      <h2>Node 1</h2>
+      <div class="sign">
+        <h2>Node 1</h2>
+      </div>
       <div id="col2_obj">
         <ul class="flex">
           <li><img id="node1_fire" src="img/fire_off.png" width="160" height="160"></li>
@@ -100,6 +165,10 @@
         </ul>
       </div>
       <div>
+        <ul class="flex" style="margin: 20px 0 0 0;">
+          <li><img src="img/temp_icon.png" width="60" height="60"></li>
+          <li><h3 id="node1_temp"></h3></li>
+        </ul>
         <ul class="graph">
           <li>
             <div id="col21"></div>
@@ -107,6 +176,10 @@
         </ul>
       </div>
       <div>
+        <ul class="flex" style="margin-top: 0px;">
+          <li><img src="img/humid_icon.png" width="50" height="50"></li>
+          <li><h3 id="node1_humid"></h3></li>
+        </ul>
         <ul class="graph">
           <li>
             <div id="col22"></div>
@@ -114,8 +187,10 @@
         </ul>
       </div>
     </div>
-    <div class="column">
-      <h2>Node 2</h2>
+    <div class="column" style="border-right: none;">
+      <div class="sign">
+        <h2>Node 2</h2>
+      </div>
       <div id="col3_obj">
         <ul class="flex">
           <li><img id="node2_fire" src="img/fire_off.png" width="160" height="160"></li>
@@ -124,6 +199,10 @@
         </ul>
       </div>
       <div>
+        <ul class="flex" style="margin: 20px 0 0 0;">
+          <li><img src="img/temp_icon.png" width="60" height="60"></li>
+          <li><h3 id="node2_temp"></h3></li>
+        </ul>
         <ul class="graph">
           <li>
             <div id="col31"></div>
@@ -131,6 +210,10 @@
         </ul>
       </div>
       <div>
+        <ul class="flex" style="margin-top: 0px;">
+          <li><img src="img/humid_icon.png" width="50" height="50"></li>
+          <li><h3 id="node2_humid"></h3></li>
+        </ul>
         <ul class="graph">
           <li>
             <div id="col32"></div>
@@ -189,10 +272,14 @@
           batt_img.src = "img/batt_low.png"
         else
           batt_img.src = "img/batt_full.png"
+
+        document.getElementById(ref + "_temp").innerHTML = "Current Temperature : " + data.temp + " °C (last update " + d3.timeFormat("%X")(new Date(data.timestamp)) + ")"
+        document.getElementById(ref + "_humid").innerHTML = "Current Humidity : " + data.humid + " % (last update " + d3.timeFormat("%X")(new Date(data.timestamp)) + ")"
+        
       });
     }
 
 
   </script>
 
-</body>
+  </body>

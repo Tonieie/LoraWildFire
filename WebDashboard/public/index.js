@@ -7,24 +7,24 @@ var margin = { top: 20, right: 30, bottom: 30, left: 60 },
 d3.json("https://lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app/.json",
 
     function (data) {
-        draw(data, "gateway",'#col11');
-        draw(data, "gateway",'#col12');
-        draw(data, "node1",'#col21');
-        draw(data, "node1",'#col22');
-        draw(data, "node2",'#col31');
-        draw(data, "node2",'#col32');
+        draw(data, "gateway",'#col11',"temp");
+        draw(data, "gateway",'#col12',"humid");
+        draw(data, "node1",'#col21',"temp");
+        draw(data, "node1",'#col22',"humid");
+        draw(data, "node2",'#col31',"temp");
+        draw(data, "node2",'#col32',"humid");
     });
 
-function draw(data, node, col) {
+function draw(data, node, col,type) {
     var data = data[node];
 
     data.forEach(function (d) {
         d.timestamp = new Date(d.timestamp);
-        d.temp = +d.temp;
+        d[type] = +d[type];
     });
 
     var zoom = d3.zoom()
-        .scaleExtent([.5, 20])  // This control how much you can unzoom (x0.5) and zoom (x20)
+        .scaleExtent([.02, 20])  // This control how much you can unzoom (x0.5) and zoom (x20)
         .extent([[0, 0], [width, height]])
         .on("zoom", updateChart);
 
@@ -79,7 +79,7 @@ function draw(data, node, col) {
     }
     var mousemove = function (d) {
         Tooltip
-            .html("Exact value: " + d.temp + "<br>" + d3.timeFormat("%X<br> %e %b %Y")(d.timestamp) + "</br>")
+            .html("Exact value: " + d[type] + "<br>" + d3.timeFormat("%X<br> %e %b %Y")(d.timestamp) + "</br>")
             .style("left", (event.pageX) + 10 + "px")
             .style("top", (event.pageY) - 70 + "px")
             .style("position", "absolute")
@@ -101,7 +101,7 @@ function draw(data, node, col) {
         .attr("d", d3.line()
             // .curve(d3.curveBasis) // Just add that to have a curve instead of segments
             .x(function (d) { return x(d.timestamp) })
-            .y(function (d) { return y(d.temp) })
+            .y(function (d) { return y(d[type]) })
         )
 
     scatter
@@ -112,7 +112,7 @@ function draw(data, node, col) {
         .append("circle")
         .attr("class", "myCircle")
         .attr("cx", function (d) { return x(d.timestamp) })
-        .attr("cy", function (d) { return y(d.temp) })
+        .attr("cy", function (d) { return y(d[type]) })
         .attr("r", 6)
         .attr("stroke", "#00A88F")
         .attr("stroke-width", 2)
@@ -137,7 +137,7 @@ function draw(data, node, col) {
         scatter
             .selectAll("circle")
             .attr('cx', function (d) { return newX(d.timestamp) })
-            .attr('cy', function (d) { return y(d.temp) });
+            .attr('cy', function (d) { return y(d[type]) });
 
         scatter
             .selectAll("path")
@@ -145,7 +145,7 @@ function draw(data, node, col) {
             .attr("d", d3.line()
                 // .curve(d3.curveBasis) // Just add that to have a curve instead of segments
                 .x(function (d) { return newX(d.timestamp) })
-                .y(function (d) { return y(d.temp) })
+                .y(function (d) { return y(d[type]) })
             )
 
     }
