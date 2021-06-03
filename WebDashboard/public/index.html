@@ -5,10 +5,16 @@
       box-sizing: border-box;
     }
 
+    @font-face {
+      font-family: SquadaOne;
+      src: url(font/Squada_One/SquadaOne-Regular.ttf);
+    }
+
     .header {
       /* display: flex; */
+      font-family: SquadaOne;
       text-align: center;
-      background: #0b87da;
+      background: #00adb5;
       color: white;
       font-size: 30px;
       height: 100;
@@ -16,8 +22,9 @@
     }
 
     .sign {
+      
       margin: 0 0 10px 0;
-      background-color: salmon;
+      background-color: #303841;
       display: inline-block;
       border-width: 1px;
       border-style: solid;
@@ -26,8 +33,9 @@
     }
 
     .sign>h2 {
+      font-family: SquadaOne;
       padding: 2px 10 2 10;
-      color: seashell;
+      color: white;
     }
 
 
@@ -53,7 +61,7 @@
 
     .flex {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       list-style: none;
       margin: 0 0 10 0;
     }
@@ -69,6 +77,26 @@
 
     .myCircle:hover {
       stroke: rgb(255, 0, 0);
+    }
+
+    .node_value{
+      display: inline-block;
+      font-family: SquadaOne;
+      font-size: 24px;
+      text-align: center;
+      padding-top: 10px;
+      margin: 0 0 0 10px;
+      
+      
+    }
+
+    .node_time{
+      display: inline-block;
+      font-family: SquadaOne;
+      font-size: 20px;
+      text-align: center;
+      padding-top: 14px;
+      margin: 0 0 0 10px;
     }
   </style>
 
@@ -119,7 +147,8 @@
       <div>
         <ul class="flex" style="margin: 20px 0 0 0;">
           <li><img src="img/temp_icon.png" width="60" height="60"></li>
-          <li><h3 id="gateway_temp"></h3></li>
+          <li><p class = "node_value" id="gateway_temp"></p></li>
+          <li><p class = "node_time" id="gateway_time"></p></li>
         </ul>
         <ul class="graph">
           <li>
@@ -137,7 +166,8 @@
       <div>
         <ul class="flex" style="margin: 0px 0 0 0;">
           <li><img src="img/humid_icon.png" width="50" height="50"></li>
-          <li><h3 id="gateway_humid"></h3></li>
+          <li><p class = "node_value" id="gateway_humid"></p></li>
+          <li><p class = "node_time" id="gateway_time2"></p></li>
         </ul>
         <ul class="graph">
           <li>
@@ -167,7 +197,8 @@
       <div>
         <ul class="flex" style="margin: 20px 0 0 0;">
           <li><img src="img/temp_icon.png" width="60" height="60"></li>
-          <li><h3 id="node1_temp"></h3></li>
+          <li><p class = "node_value" id="node1_temp"></p></li>
+          <li><p class = "node_time" id="node1_time"></p></li>
         </ul>
         <ul class="graph">
           <li>
@@ -178,7 +209,8 @@
       <div>
         <ul class="flex" style="margin-top: 0px;">
           <li><img src="img/humid_icon.png" width="50" height="50"></li>
-          <li><h3 id="node1_humid"></h3></li>
+          <li><p class = "node_value" id="node1_humid"></p></li>
+          <li><p class = "node_time" id="node1_time2"></p></li>
         </ul>
         <ul class="graph">
           <li>
@@ -201,7 +233,8 @@
       <div>
         <ul class="flex" style="margin: 20px 0 0 0;">
           <li><img src="img/temp_icon.png" width="60" height="60"></li>
-          <li><h3 id="node2_temp"></h3></li>
+          <li><p class = "node_value" id="node2_temp"></p></li>
+          <li><p class = "node_time" id="node2_time"></p></li>
         </ul>
         <ul class="graph">
           <li>
@@ -212,7 +245,8 @@
       <div>
         <ul class="flex" style="margin-top: 0px;">
           <li><img src="img/humid_icon.png" width="50" height="50"></li>
-          <li><h3 id="node2_humid"></h3></li>
+          <li><p class = "node_value" id="node2_humid"></p></li>
+          <li><p class = "node_time" id="node2_time2"></p></li>
         </ul>
         <ul class="graph">
           <li>
@@ -273,9 +307,10 @@
         else
           batt_img.src = "img/batt_full.png"
 
-        document.getElementById(ref + "_temp").innerHTML = "Current Temperature : " + data.temp + " °C (last update " + d3.timeFormat("%X")(new Date(data.timestamp)) + ")"
-        document.getElementById(ref + "_humid").innerHTML = "Current Humidity : " + data.humid + " % (last update " + d3.timeFormat("%X")(new Date(data.timestamp)) + ")"
-        
+        document.getElementById(ref + "_temp").innerHTML = "Temperature : " + data.temp + " °C"
+        document.getElementById(ref + "_humid").innerHTML = "Humidity : " + data.humid + " %"
+        document.getElementById(ref + "_time").innerHTML = "  (last update " + d3.timeFormat("%X")(new Date(data.timestamp)) + ")"
+        document.getElementById(ref + "_time2").innerHTML = "  (last update " + d3.timeFormat("%X")(new Date(data.timestamp)) + ")"
       });
     }
 
