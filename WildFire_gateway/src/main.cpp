@@ -34,6 +34,22 @@ void LoRa_txMode()
   LoRa.enableInvertIQ(); // active invert I and Q signals
 }
 
+void sentToNd(int node_num)// r e q node led
+{
+    uint8_t checksum = 0;
+    uint8_t payload[] = {'r', 'e', 'q', node_num , LED_Byte};
+    LoRa_txMode();
+    LoRa.beginPacket();
+    for (int i = 0; i < sizeof(payload); i++)
+    {
+        LoRa.write(payload[i]);
+        checksum += payload[i];
+    }
+    checksum = ~(checksum) + 1;
+    LoRa.write(checksum);
+    LoRa.endPacket(true);
+}
+
 void onReceive(int packetSize)
 {
   static uint8_t buffer[24];
@@ -108,6 +124,7 @@ union FloatToByte
 FloatToByte temp, humid;
 
 uint8_t util_byte = 0;
+uint8_t LED_Byte = 0x00;
 
 void setup()
 {
