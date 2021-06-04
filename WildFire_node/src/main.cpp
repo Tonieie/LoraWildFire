@@ -71,7 +71,7 @@ void onReceive(int packetSize)
 
 void onTxDone()
 {
-  //LoRa_rxMode();
+  LoRa_rxMode();
 }
 
 //----------Sensor Reading----------//
