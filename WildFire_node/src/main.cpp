@@ -59,7 +59,7 @@ void LoRa_txMode()
 void onReceive(int packetSize)
 {
 
-  static uint8_t buffer[8];
+  static uint8_t buffer[10];
   uint8_t index = 0;
   while (LoRa.available())
   {
@@ -68,12 +68,10 @@ void onReceive(int packetSize)
     if (buffer[index - 4] == 'r' && buffer[index - 3] == 'e' && buffer[index - 2] == 'q' && buffer[index - 1] == ('0' + node_number))
     {
       if(buffer[index] == 0xFF){
-        setBit(&util_byte, led_bit);
-        led_flag = true;
+        digitalWrite(LEDPin,1);
       }
       else{
-        clearBit(&util_byte,led_bit);
-        led_flag = false;
+        digitalWrite(LEDPin,0);
       }
       sent_flag = true;
     }
@@ -165,16 +163,9 @@ void sentToGw(void *pvParam)
   }
 }
 
-void ctrl_led(){
-  while(1){
-    if(led_flag){
-      digitalWrite(LEDPin,1);
-    }
-  }
-}
-
 void setup()
 {
+  pinMode(LEDPin, OUTPUT);
 
   Serial.begin(9600);
 
