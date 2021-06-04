@@ -191,7 +191,7 @@ void setup()
 
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
-  LoRa_rxMode();
+  //LoRa_rxMode();
 }
 
 void loop()
