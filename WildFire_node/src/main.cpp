@@ -9,6 +9,7 @@
 #define SS 27
 #define RST 26
 #define DIO0 25
+#define LEDPin 23
 
 #define DHTPIN 15
 #define SW_pin 19
@@ -169,6 +170,7 @@ void sentToGw(void *pvParam)
 
 void setup()
 {
+  pinMode(LEDPin, OUTPUT);
 
   Serial.begin(9600);
 
