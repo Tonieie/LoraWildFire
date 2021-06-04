@@ -4,6 +4,7 @@
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <IOXhop_FirebaseESP32.h>
+#include <time.h>
 
 //----------Pin define----------//
 #define SCK 14
@@ -24,7 +25,6 @@ union FloatToByte
 };
 FloatToByte temp[3], humid[3];
 
-uint8_t util_byte = 0;
 DHT dht(DHTPIN, DHT11);
 
 boolean flag_batt[3] = {false, false, false};
@@ -43,7 +43,7 @@ boolean flag_smoke[3] = {false, false, false};
 #define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
 
 //----------CPU0 Handle----------//
-TaskHandle_t firebase_taskhandle = NULL;
+TaskHandle_t cpu0_taskhandle = NULL;
 
 //----------LoRa Tasks----------//
 void LoRa_rxMode()
@@ -58,20 +58,20 @@ void LoRa_txMode()
   LoRa.enableInvertIQ(); // active invert I and Q signals
 }
 
-void sentToNd(char node_num,uint8_t LED_Byte)// r e q node led
+void sentToNd(char node_num, uint8_t LED_Byte) // r e q node led
 {
-    uint8_t checksum = 0;
-    uint8_t payload[] = {'r', 'e', 'q', node_num , LED_Byte};
-    LoRa_txMode();
-    LoRa.beginPacket();
-    for (int i = 0; i < sizeof(payload); i++)
-    {
-        LoRa.write(payload[i]);
-        checksum += payload[i];
-    }
-    checksum = ~(checksum) + 1;
-    LoRa.write(checksum);
-    LoRa.endPacket(true);
+  uint8_t checksum = 0;
+  uint8_t payload[] = {'r', 'e', 'q', node_num, LED_Byte};
+  LoRa_txMode();
+  LoRa.beginPacket();
+  for (int i = 0; i < sizeof(payload); i++)
+  {
+    LoRa.write(payload[i]);
+    checksum += payload[i];
+  }
+  checksum = ~(checksum) + 1;
+  LoRa.write(checksum);
+  LoRa.endPacket(true);
 }
 
 void onReceive(int packetSize)
@@ -154,7 +154,7 @@ void readCritical()
 }
 
 //----------CPU0 Tasks----------//
-void firebase_task(void *pvParam)
+void cpu0_task(void *pvParam)
 {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
@@ -165,12 +165,12 @@ void firebase_task(void *pvParam)
   }
 
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  configTime(7 * 60 * 60, 0, "pool.ntp.org");
+
   while (1)
   {
     // Firebase.setFloat("node1/temp", temp.asFloat);
     // Firebase.setFloat("node1/humid", humid.asFloat);
-
-    vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
 
@@ -178,6 +178,7 @@ void setup()
 {
 
   Serial.begin(9600);
+  xTaskCreatePinnedToCore(cpu0_task, "firebase_task", 10000, NULL, 0, &cpu0_taskhandle, 0);
 
   //setup LoRa module (sx1276) with frequency 923.2 MHz
   SPI.begin(SCK, MISO, MOSI, SS);
@@ -189,11 +190,10 @@ void setup()
       ;
   }
 
-  xTaskCreatePinnedToCore(firebase_task, "firebase_task", 10000, NULL, 0, &firebase_taskhandle, 0);
-
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
   LoRa_rxMode();
+
 }
 
 void loop()
