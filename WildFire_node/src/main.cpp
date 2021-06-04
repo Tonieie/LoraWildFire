@@ -10,6 +10,10 @@
 #define RST 26
 #define DIO0 25
 
+#define DHTPIN 15
+#define SW_pin 19
+#define LED 23
+
 //----------CPU0 Handle----------//
 TaskHandle_t sentToGw_handle = NULL;
 
@@ -18,7 +22,6 @@ TaskHandle_t receiveFromGw_handle = NULL;
 TaskHandle_t ctrlLed_handle = NULL;
 
 //----------Params----------//
-#define DHTPIN 15
 DHT dht(DHTPIN, DHT11);
 
 union FloatToByte
@@ -36,7 +39,6 @@ uint8_t util_byte = 0;
 #define batt_bit 2
 #define led_bit 3
 
-#define SW_pin 19
 
 boolean sent_flag = false;
 
@@ -56,16 +58,24 @@ void LoRa_txMode()
 void onReceive(int packetSize)
 {
 
-  static uint8_t buffer[8];
+  static uint8_t buffer[10];
   uint8_t index = 0;
   while (LoRa.available())
   {
     buffer[index] = (uint8_t)LoRa.read();
 
-    if (buffer[index - 3] == 'r' && buffer[index - 2] == 'e' && buffer[index - 1] == 'q' && buffer[index] == ('0' + node_number))
+    if (buffer[index - 4] == 'r' && buffer[index - 3] == 'e' && buffer[index - 2] == 'q' && buffer[index - 1] == ('0' + node_number))
     {
+      if(buffer[index] == 0xFF)
+        digitalWrite(LED,HIGH);
+      else
+        digitalWrite(LED,LOW);
+
       sent_flag = true;
+      index = 0;
     }
+
+    index >= 9? index = 0 : index++;
   }
 }
 
