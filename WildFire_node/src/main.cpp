@@ -11,10 +11,6 @@
 #define DIO0 25
 
 //----------CPU0 Handle----------//
-TaskHandle_t readDHT_handle = NULL;
-TaskHandle_t readSmoke_handle = NULL;
-TaskHandle_t readSwitch_handle = NULL;
-TaskHandle_t readBatt_handle = NULL;
 TaskHandle_t sentToGw_handle = NULL;
 
 //----------CPU1 Handle----------//
@@ -34,10 +30,15 @@ union FloatToByte
 FloatToByte temp, humid;
 uint8_t util_byte = 0;
 
+#define node_number 1
 #define sw_bit 0
 #define smoke_bit 1
-#define led_bit 2
+#define batt_bit 2
+#define led_bit 3
 
+#define SW_pin 19
+
+boolean sent_flag = false;
 
 //----------Gateway - Node functions----------//
 void LoRa_rxMode()
@@ -54,61 +55,104 @@ void LoRa_txMode()
 
 void onReceive(int packetSize)
 {
-  String message = "";
 
+  static uint8_t buffer[8];
+  uint8_t index = 0;
   while (LoRa.available())
   {
-    message += (char)LoRa.read();
-  }
+    buffer[index] = (uint8_t)LoRa.read();
 
-  Serial.print("Node Receive: ");
-  Serial.println(message);
+    if (buffer[index - 3] == 'r' && buffer[index - 2] == 'e' && buffer[index - 1] == 'q' && buffer[index] == ('0' + node_number))
+    {
+      sent_flag = true;
+    }
+  }
 }
 
 void onTxDone()
 {
-  Serial.println("TxDone");
   LoRa_rxMode();
 }
 
-
-//----------CPU0 Task----------//
-void readDHT(void *pvParam)
+//----------Sensor Reading----------//
+void readBatt()
 {
-  while (1)
-  {
-    temp.asFloat = dht.readTemperature();
-    humid.asFloat = dht.readHumidity();
+  digitalWrite(18, LOW);
+  float v_batt = (float)analogRead(4);
+  v_batt = v_batt / 4095.0f * 2 * 3.3f;
 
-    vTaskDelay(pdMS_TO_TICKS(30000));
-  }
+  if (v_batt <= 3.7f)
+    setBit(&util_byte, batt_bit);
+  else
+    clearBit(&util_byte, batt_bit);
 }
 
+void readDHT()
+{
+  temp.asFloat = dht.readTemperature();
+  humid.asFloat = dht.readHumidity();
+}
+
+void readCritical()
+{
+  if (digitalRead(SW_pin) == LOW)
+  {
+    setBit(&util_byte, sw_bit);
+    sent_flag = true;
+  }
+  else
+    clearBit(&util_byte, sw_bit);
+
+  //**********Read Smoke**********//
+
+
+
+}
+
+uint8_t setBit(uint8_t *data, uint8_t bit)
+{
+  return *data |= (1 << bit);
+}
+
+uint8_t clearBit(uint8_t *data, uint8_t bit)
+{
+  return *data &= ~(1 << bit);
+}
+
+//----------CPU0 Task----------//
 void sentToGw(void *pvParam)
 {
-  while (1)
+  while (1)                                                                                                   
   {
-    uint8_t checksum = 0;
-    uint8_t payload[] = {'n','o',
-                          temp.asByte[0],temp.asByte[1],temp.asByte[2],temp.asByte[3],
-                          humid.asByte[0],humid.asByte[1],humid.asByte[2],humid.asByte[3],
-                          util_byte
-                        };
-    LoRa_txMode();
-    LoRa.beginPacket();
-    for(int i = 0; i < sizeof(payload);i++)
+
+    readCritical();
+
+    if (sent_flag == true)
+    {
+      readDHT();
+      readBatt();
+      uint8_t checksum = 0;
+      uint8_t payload[] = {'n', '0' + node_number,
+                           temp.asByte[0], temp.asByte[1], temp.asByte[2], temp.asByte[3],
+                           humid.asByte[0], humid.asByte[1], humid.asByte[2], humid.asByte[3],
+                           util_byte};
+      LoRa_txMode();
+      LoRa.beginPacket();
+      for (int i = 0; i < sizeof(payload); i++)
       {
         LoRa.write(payload[i]);
         checksum += payload[i];
       }
       checksum = ~(checksum) + 1;
       LoRa.write(checksum);
-    LoRa.endPacket(true);
+      LoRa.endPacket(true);
 
-    vTaskDelay(pdMS_TO_TICKS(30000));
+      sent_flag = false;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
-
 
 void setup()
 {
@@ -127,7 +171,6 @@ void setup()
 
   dht.begin();
 
-  xTaskCreatePinnedToCore(readDHT, "readDHT", 2000, NULL, 1, &readDHT_handle, 0);
   xTaskCreatePinnedToCore(sentToGw, "sentToGw", 2000, NULL, 1, &sentToGw_handle, 0);
 
   LoRa.onReceive(onReceive);
