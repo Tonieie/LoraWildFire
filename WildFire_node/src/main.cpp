@@ -63,20 +63,25 @@ void onReceive(int packetSize)
   while (LoRa.available())
   {
     buffer[index] = (uint8_t)LoRa.read();
-
     if (buffer[index - 4] == 'r' && buffer[index - 3] == 'e' && buffer[index - 2] == 'q' && buffer[index - 1] == ('0' + node_number))
     {
+      if(index == 0 && buffer[0] != 'r')
+        index = 0;
+
       if(buffer[index] == 0xFF)
         digitalWrite(LED,HIGH);
       else
         digitalWrite(LED,LOW);
 
       sent_flag = true;
+
       index = 0;
     }
 
     index >= 9? index = 0 : index++;
+    // Serial.write((uint8_t)LoRa.read());
   }
+  // Serial.println("i heard sth");
 }
 
 void onTxDone()
@@ -85,6 +90,16 @@ void onTxDone()
 }
 
 //----------Sensor Reading----------//
+void setBit(uint8_t *data, uint8_t bit)
+{
+   *data |= (1 << bit);
+}
+
+void clearBit(uint8_t *data, uint8_t bit)
+{
+   *data &= ~(1 << bit);
+}
+
 void readBatt()
 {
   digitalWrite(18, LOW);
@@ -115,18 +130,6 @@ void readCritical()
 
   //**********Read Smoke**********//
 
-
-
-}
-
-void setBit(uint8_t *data, uint8_t bit)
-{
-   *data |= (1 << bit);
-}
-
-void clearBit(uint8_t *data, uint8_t bit)
-{
-   *data &= ~(1 << bit);
 }
 
 //----------CPU0 Task----------//
@@ -180,6 +183,7 @@ void setup()
   }
 
   dht.begin();
+  pinMode(LED,OUTPUT);
 
   xTaskCreatePinnedToCore(sentToGw, "sentToGw", 2000, NULL, 1, &sentToGw_handle, 0);
 
