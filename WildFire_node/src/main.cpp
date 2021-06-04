@@ -14,6 +14,27 @@
 #define DHTPIN 15
 #define SW_pin 19
 #define LED 23
+/***********************MQ2************************************/
+#define MQ_PIN (2)                        //define which analog input channel you are going to use
+#define RL_VALUE (5)                      //define the load resistance on the board, in kilo ohms
+#define RO_CLEAN_AIR_FACTOR (9.83)        //RO_CLEAR_AIR_FACTOR=(Sensor resistance in clean air)/RO, 
+                                          //which is derived from the chart in datasheet
+#define CALIBARAION_SAMPLE_TIMES (50)     //define how many samples you are going to take in the calibration phase
+#define CALIBRATION_SAMPLE_INTERVAL (500) //define the time interal(in milisecond) between each samples in the
+#define READ_SAMPLE_INTERVAL (50)         //define how many samples you are going to take in normal operation
+#define READ_SAMPLE_TIMES (5)             //define the time interal(in milisecond) between each samples in
+#define GAS_CO (1)
+#define GAS_SMOKE (2)
+float COCurve[3] = {2.3, 0.72, -0.34};    //two points are taken from the curve.
+                                          //with these two points, a line is formed which is "approximately equivalent"
+                                          //to the original curve.
+                                          //data format:{ x, y, slope}; point1: (lg200, 0.72), point2: (lg10000,  0.15)
+float SmokeCurve[3] = {2.3, 0.53, -0.44}; //two points are taken from the curve.
+                                          //with these two points, a line is formed which is "approximately equivalent"
+                                          //to the original curve.
+                                          //data format:{ x, y, slope}; point1: (lg200, 0.53), point2: (lg10000,  -0.22)
+float Ro = 10;                            //Ro is initialized to 10 kilo ohms
+/////////////////////////////////////////////////////
 
 //----------CPU0 Handle----------//
 TaskHandle_t sentToGw_handle = NULL;
@@ -40,7 +61,6 @@ uint8_t util_byte = 0;
 #define batt_bit 2
 #define led_bit 3
 
-
 boolean sent_flag = false;
 
 //----------Gateway - Node functions----------//
@@ -66,23 +86,21 @@ void onReceive(int packetSize)
     buffer[index] = (uint8_t)LoRa.read();
     if (buffer[index - 4] == 'r' && buffer[index - 3] == 'e' && buffer[index - 2] == 'q' && buffer[index - 1] == ('0' + node_number))
     {
-      if(index == 0 && buffer[0] != 'r')
+      if (index == 0 && buffer[0] != 'r')
         index = 0;
 
-      if(buffer[index] == 0xFF)
-        digitalWrite(LED,HIGH);
+      if (buffer[index] == 0xFF)
+        digitalWrite(LED, HIGH);
       else
-        digitalWrite(LED,LOW);
+        digitalWrite(LED, LOW);
 
       sent_flag = true;
 
       index = 0;
     }
 
-    index >= 9? index = 0 : index++;
-    // Serial.write((uint8_t)LoRa.read());
+    index >= 9 ? index = 0 : index++;
   }
-  // Serial.println("i heard sth");
 }
 
 void onTxDone()
@@ -93,12 +111,12 @@ void onTxDone()
 //----------Sensor Reading----------//
 void setBit(uint8_t *data, uint8_t bit)
 {
-   *data |= (1 << bit);
+  *data |= (1 << bit);
 }
 
 void clearBit(uint8_t *data, uint8_t bit)
 {
-   *data &= ~(1 << bit);
+  *data &= ~(1 << bit);
 }
 
 void readBatt()
@@ -130,17 +148,78 @@ void readCritical()
     clearBit(&util_byte, sw_bit);
 
   //**********Read Smoke**********//
+}
+float MQResistanceCalculation(int raw_adc)
+{
+  return (((float)RL_VALUE * (4095 - raw_adc) / raw_adc));
+}
+float MQCalibration(int mq_pin)
+{
+  int i;
+  float val = 0;
 
+  for (i = 0; i < CALIBARAION_SAMPLE_TIMES; i++)
+  { //take multiple samples
+    val += MQResistanceCalculation(analogRead(mq_pin));
+    delay(CALIBRATION_SAMPLE_INTERVAL);
+  }
+  val = val / CALIBARAION_SAMPLE_TIMES; //calculate the average value
+
+  val = val / RO_CLEAN_AIR_FACTOR; //divided by RO_CLEAN_AIR_FACTOR yields the Ro
+  return val;
+}
+float MQRead(int mq_pin)
+{
+  int i;
+  float rs = 0;
+  for (i = 0; i < READ_SAMPLE_TIMES; i++)
+  {
+    rs += MQResistanceCalculation(analogRead(mq_pin));
+    delay(READ_SAMPLE_INTERVAL);
+  }
+  rs = rs / READ_SAMPLE_TIMES;
+  return rs;
+}
+int MQGetPercentage(float rs_ro_ratio, float *pcurve)
+{
+  return (pow(10, (((log(rs_ro_ratio) - pcurve[1]) / pcurve[2]) + pcurve[0])));
+}
+int MQGetGasPercentage(float rs_ro_ratio, int gas_id)
+{
+    if (gas_id == GAS_CO)
+    {
+        return MQGetPercentage(rs_ro_ratio, COCurve);
+    }
+    else if (gas_id == GAS_SMOKE)
+    {
+        return MQGetPercentage(rs_ro_ratio, SmokeCurve);
+    }
+    return 0;
+}
+boolean readMQ()
+{
+  long COppm, SMOKEppm = 0;
+  //Serial.print("CO:");
+  COppm = MQGetGasPercentage(MQRead(MQ_PIN) / Ro, GAS_CO);
+  //Serial.print("SMOKE:");
+  SMOKEppm = MQGetGasPercentage(MQRead(MQ_PIN) / Ro, GAS_SMOKE);
+  if (SMOKEppm > 400) 
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
 }
 
-//----------CPU0 Task----------//
+    //----------CPU0 Task----------//
 void sentToGw(void *pvParam)
 {
-  while (1)                                                                                                   
+  while (1)
+  ;
   {
-
     readCritical();
-
     if (sent_flag == true)
     {
       readDHT();
@@ -185,7 +264,9 @@ void setup()
   }
 
   dht.begin();
-  pinMode(LED,OUTPUT);
+  Serial.print("Calibrating...\n");
+  Ro = MQCalibration(MQ_PIN); //MQ2 calibration
+  pinMode(LED, OUTPUT);
 
   xTaskCreatePinnedToCore(sentToGw, "sentToGw", 2000, NULL, 1, &sentToGw_handle, 0);
 
@@ -196,4 +277,5 @@ void setup()
 
 void loop()
 {
+  // readMQ();
 }
