@@ -64,14 +64,9 @@ void onReceive(int packetSize)
         humid.asByte[3] = buffer[index - 2];
 
         util_byte = buffer[index - 1];
-
-        Serial.print("temp : ");
-        Serial.print(temp.asFloat);
-        Serial.print(" humid : ");
-        Serial.println(humid.asFloat);
         index = 0;
       }
-    }
+    } 
 
     index >= 23 ? index = 0 : index++;
   }
@@ -79,7 +74,7 @@ void onReceive(int packetSize)
 
 void onTxDone()
 {
-  Serial.println("TxDone");
+  // Serial.println("TxDone");
   LoRa_rxMode();
 }
 
@@ -95,7 +90,7 @@ void firebase_task(void *pvParam)
   }
 
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
-  for (;;)
+  while(1)
   {
     Firebase.setFloat("node1/temp", temp.asFloat);
     Firebase.setFloat("node1/humid", humid.asFloat);
