@@ -30,20 +30,22 @@ DHT dht(DHTPIN, DHT11);
 boolean flag_batt[3] = {false, false, false};
 boolean flag_switch[3] = {false, false, false};
 boolean flag_smoke[3] = {false, false, false};
+boolean flag_ack[3] = {false, false, false};
 
 #define sw_bit 0
 #define smoke_bit 1
 #define batt_bit 2
 
 //----------Firebase & WiFi----------//
-#define WIFI_SSID "tonieie"
-#define WIFI_PASSWORD "PUTPASSWORDHERE"
+#define WIFI_SSID "NKH1449_2.4G"
+#define WIFI_PASSWORD "0851404547"
 
 #define FIREBASE_HOST "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
 #define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
 
 //----------CPU0 Handle----------//
 TaskHandle_t cpu0_taskhandle = NULL;
+TaskHandle_t req_taskhandle = NULL;
 
 //----------LoRa Tasks----------//
 void LoRa_rxMode()
@@ -65,12 +67,7 @@ void sentToNd(char node_num, uint8_t LED_Byte) // r e q node led
   LoRa_txMode();
   LoRa.beginPacket();
   for (int i = 0; i < sizeof(payload); i++)
-  {
     LoRa.write(payload[i]);
-    checksum += payload[i];
-  }
-  checksum = ~(checksum) + 1;
-  LoRa.write(checksum);
   LoRa.endPacket(true);
 }
 
@@ -107,7 +104,7 @@ void onReceive(int packetSize)
         flag_batt[node_num] = (buffer[index - 1] >> batt_bit) & 0x01;
         flag_smoke[node_num] = (buffer[index - 1] >> smoke_bit) & 0x01;
         flag_switch[node_num] = (buffer[index - 1] >> sw_bit) & 0x01;
-
+        flag_ack[node_num] = true;
         index = 0;
       }
     }
@@ -156,6 +153,64 @@ void readCritical()
 //----------CPU0 Tasks----------//
 void cpu0_task(void *pvParam)
 {
+
+  while (1)
+  {
+    // Firebase.setFloat("node1/temp", temp.asFloat);
+    // Firebase.setFloat("node1/humid", humid.asFloat);
+    vTaskDelay(1000);
+  }
+}
+
+//----------CPU1 Tasks----------//
+void req_task(void *pvParam)
+{
+  struct tm current_time;
+  while (1)
+  {
+    Serial.println("in task");
+    if (!getLocalTime(&current_time))
+    {
+      Serial.println("Failed to obtain time");
+    }
+
+    if (current_time.tm_min == 34)
+    {
+      // if (current_time.tm_hour % 4 == 0)
+      // {
+      //   sentToNd('1', 0);
+      //   sentToNd('2', 0);
+      // }
+      // else
+      if (current_time.tm_hour == 21)
+      {
+        flag_ack[0] = true;
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(60000)); //pause task for 55 mins
+    }
+    if (flag_ack[0] == true)
+    {
+      if(flag_ack[1] == false && flag_ack[2] == false)
+        sentToNd('1', 0xFF);
+      else if(flag_ack[1] == true && flag_ack[2] == false)
+        sentToNd('2', 0xFF);
+      else if(flag_ack[1] == true && flag_ack[2] == true){
+        flag_ack[0] = false;
+        flag_ack[1] = false;
+        flag_ack[2] = false;
+        Serial.println("ieei send");
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
+
+void setup()
+{
+
+  Serial.begin(57600);
+  // while(!Serial);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
   while (WiFi.status() != WL_CONNECTED)
@@ -163,22 +218,8 @@ void cpu0_task(void *pvParam)
     Serial.print(".");
     delay(300);
   }
-
-  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
   configTime(7 * 60 * 60, 0, "pool.ntp.org");
-
-  while (1)
-  {
-    // Firebase.setFloat("node1/temp", temp.asFloat);
-    // Firebase.setFloat("node1/humid", humid.asFloat);
-  }
-}
-
-void setup()
-{
-
-  Serial.begin(9600);
-  xTaskCreatePinnedToCore(cpu0_task, "firebase_task", 10000, NULL, 0, &cpu0_taskhandle, 0);
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
 
   //setup LoRa module (sx1276) with frequency 923.2 MHz
   SPI.begin(SCK, MISO, MOSI, SS);
@@ -194,6 +235,10 @@ void setup()
   LoRa.onTxDone(onTxDone);
   LoRa_rxMode();
 
+  // xTaskCreatePinnedToCore(cpu0_task, "cpu0_task", 10000, NULL, 0, &cpu0_taskhandle, 0);
+  xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
+  pinMode(SW_pin, INPUT);
+  Serial.println("in");
 }
 
 void loop()
