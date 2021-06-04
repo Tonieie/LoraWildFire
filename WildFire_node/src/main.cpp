@@ -9,6 +9,7 @@
 #define SS 27
 #define RST 26
 #define DIO0 25
+#define LEDPin 23
 
 //----------CPU0 Handle----------//
 TaskHandle_t sentToGw_handle = NULL;
@@ -40,6 +41,7 @@ uint8_t LED_Byte = 0x00;
 #define SW_pin 19
 
 boolean sent_flag = false;
+boolean led_flag = false;
 
 //----------Gateway - Node functions----------//
 void LoRa_rxMode()
@@ -67,9 +69,11 @@ void onReceive(int packetSize)
     {
       if(buffer[index] == 0xFF){
         setBit(&util_byte, led_bit);
+        led_flag = true;
       }
       else{
         clearBit(&util_byte,led_bit);
+        led_flag = false;
       }
       sent_flag = true;
     }
@@ -158,6 +162,14 @@ void sentToGw(void *pvParam)
     }
 
     vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
+
+void ctrl_led(){
+  while(1){
+    if(led_flag){
+      digitalWrite(LEDPin,1);
+    }
   }
 }
 
