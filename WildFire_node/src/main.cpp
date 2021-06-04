@@ -71,7 +71,7 @@ void onReceive(int packetSize)
 
 void onTxDone()
 {
-  //LoRa_rxMode();
+  LoRa_rxMode();
 }
 
 //----------Sensor Reading----------//
@@ -109,14 +109,14 @@ void readCritical()
 
 }
 
-uint8_t setBit(uint8_t *data, uint8_t bit)
+void setBit(uint8_t *data, uint8_t bit)
 {
-  return *data |= (1 << bit);
+   *data |= (1 << bit);
 }
 
-uint8_t clearBit(uint8_t *data, uint8_t bit)
+void clearBit(uint8_t *data, uint8_t bit)
 {
-  return *data &= ~(1 << bit);
+   *data &= ~(1 << bit);
 }
 
 //----------CPU0 Task----------//
