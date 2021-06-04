@@ -30,7 +30,6 @@ union FloatToByte
 
 FloatToByte temp, humid;
 uint8_t util_byte = 0;
-uint8_t LED_Byte = 0x00;
 
 #define node_number 1
 #define sw_bit 0
@@ -41,7 +40,6 @@ uint8_t LED_Byte = 0x00;
 #define SW_pin 19
 
 boolean sent_flag = false;
-boolean led_flag = false;
 
 //----------Gateway - Node functions----------//
 void LoRa_rxMode()
