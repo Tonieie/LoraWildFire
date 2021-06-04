@@ -65,7 +65,12 @@ void onReceive(int packetSize)
 
     if (buffer[index - 4] == 'r' && buffer[index - 3] == 'e' && buffer[index - 2] == 'q' && buffer[index - 1] == ('0' + node_number))
     {
-      buffer[index] = LED_Byte;
+      if(buffer[index] == 0xFF){
+        setBit(&util_byte, led_bit);
+      }
+      else{
+        clearBit(&util_byte,led_bit);
+      }
       sent_flag = true;
     }
   }
