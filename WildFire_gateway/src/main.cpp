@@ -34,7 +34,7 @@ void LoRa_txMode()
   LoRa.enableInvertIQ(); // active invert I and Q signals
 }
 
-void sentToNd(int node_num)// r e q node led
+void sentToNd(char node_num)// r e q node led
 {
     uint8_t checksum = 0;
     uint8_t payload[] = {'r', 'e', 'q', node_num , LED_Byte};
