@@ -4,8 +4,12 @@
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <IOXhop_FirebaseESP32.h>
+#include <TridentTD_LineNotify.h>
+#include <BlynkSimpleEsp32.h>
+
 
 //----------Pin define----------//
+#define BLYNK_PRINT Serial
 #define SCK 14
 #define MISO 12
 #define MOSI 13
@@ -31,13 +35,21 @@ boolean flag_batt[3] = {false, false, false};
 boolean flag_switch[3] = {false, false, false};
 boolean flag_smoke[3] = {false, false, false};
 
+int lastS1 = 0;
+int currentS1 = 0;
+
+
 #define sw_bit 0
 #define smoke_bit 1
 #define batt_bit 2
+//----------Line & Blynk Token----------//
+#define LINE_TOKEN  "qXTiqmoPiOWNiCVWpt2RCQ0fXNnVa1XjAm7Dhi7jQAc"   
+#define Blynk_TOKEN "6IcpR9OcnSMVpMRdY0VOIQ1CGN-eyHRH"
+BlynkTimer timer;
 
 //----------Firebase & WiFi----------//
-#define WIFI_SSID "tonieie"
-#define WIFI_PASSWORD "PUTPASSWORDHERE"
+#define WIFI_SSID "NKH1449_2.4G"
+#define WIFI_PASSWORD "0851404547"
 
 #define FIREBASE_HOST "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
 #define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
@@ -58,20 +70,20 @@ void LoRa_txMode()
   LoRa.enableInvertIQ(); // active invert I and Q signals
 }
 
-void sentToNd(char node_num,uint8_t LED_Byte)// r e q node led
+void sentToNd(char node_num, uint8_t LED_Byte) // r e q node led
 {
-    uint8_t checksum = 0;
-    uint8_t payload[] = {'r', 'e', 'q', node_num , LED_Byte};
-    LoRa_txMode();
-    LoRa.beginPacket();
-    for (int i = 0; i < sizeof(payload); i++)
-    {
-        LoRa.write(payload[i]);
-        checksum += payload[i];
-    }
-    checksum = ~(checksum) + 1;
-    LoRa.write(checksum);
-    LoRa.endPacket(true);
+  uint8_t checksum = 0;
+  uint8_t payload[] = {'r', 'e', 'q', node_num, LED_Byte};
+  LoRa_txMode();
+  LoRa.beginPacket();
+  for (int i = 0; i < sizeof(payload); i++)
+  {
+    LoRa.write(payload[i]);
+    checksum += payload[i];
+  }
+  checksum = ~(checksum) + 1;
+  LoRa.write(checksum);
+  LoRa.endPacket(true);
 }
 
 void onReceive(int packetSize)
@@ -167,18 +179,77 @@ void firebase_task(void *pvParam)
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
   while (1)
   {
-    // Firebase.setFloat("node1/temp", temp.asFloat);
-    // Firebase.setFloat("node1/humid", humid.asFloat);
+    Blynk.run(); 
+    timer.run(); //แก้ให้ด้วย
+    Line_Notify(); //นี่ก็ด้วย
+ 
 
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    // vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
+//------ Blynk ------//
+void blynk()
+{
+  Blynk.virtualWrite(V2, temp[0].asFloat );
+  Blynk.virtualWrite(V3, humid[0].asFloat);
+  Blynk.virtualWrite(V4, temp[1].asFloat );
+  Blynk.virtualWrite(V5, humid[1].asFloat);
+  Blynk.virtualWrite(V6, temp[2].asFloat );
+  Blynk.virtualWrite(V7, humid[2].asFloat);
+}
+
+void Line_Notify()
+{
+  if (flag_batt[0] = true)
+  {
+    LINE.notify("BatteryGw LOW!!");
+  }
+   if (flag_batt[1] = true)
+  {
+    LINE.notify("BatteryN1 LOW!!");
+  }
+   if (flag_batt[2] = true)
+  {
+    LINE.notify("BatteryN2 LOW!!");
+  }
+   if (flag_switch[0] = true)
+  {
+    LINE.notify("Gw SOS!!");
+  }
+  if (flag_switch[1] = true)
+  {
+    LINE.notify("N1 SOS!!");
+  }
+  if (flag_switch[2] = true)
+  {
+    LINE.notify("N2 SOS!!");
+  }
+  if (flag_smoke[0] = true)
+  {
+    LINE.notify("Gw Fire!!");
+  }
+  if (flag_smoke[1] = true)
+  {
+    LINE.notify("N1 Fire!!");
+  }
+  if (flag_smoke[2] = true)
+  {
+    LINE.notify("N2 Fire!!");
+  }
+}
+
+  
 
 void setup()
 {
 
   Serial.begin(9600);
-
+  //setup Blynk
+  Blynk.begin(Blynk_TOKEN, WIFI_SSID , WIFI_PASSWORD , IPAddress(43,229,135,169), 8080);
+  timer.setInterval(1000L, blynk);
+  //setup Line notify
+  Serial.println(LINE.getVersion());
+  LINE.setToken(LINE_TOKEN);
   //setup LoRa module (sx1276) with frequency 923.2 MHz
   SPI.begin(SCK, MISO, MOSI, SS);
   LoRa.setPins(SS, RST, DIO0);
@@ -194,9 +265,10 @@ void setup()
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
   LoRa_rxMode();
+
 }
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
+  
 }
