@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <LoRa.h>
 #include <WiFi.h>
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
 #include <IOXhop_FirebaseESP32.h>
 
 //----------Pin define----------//
@@ -10,6 +12,28 @@
 #define SS 27
 #define RST 26
 #define DIO0 25
+
+#define DHTPIN 15
+#define SW_pin 19
+
+//---------Global Variables----------//
+union FloatToByte
+{
+  float asFloat;
+  uint8_t asByte[4];
+};
+FloatToByte temp[3], humid[3];
+
+uint8_t util_byte = 0;
+DHT dht(DHTPIN, DHT11);
+
+boolean flag_batt[3] = {false, false, false};
+boolean flag_switch[3] = {false, false, false};
+boolean flag_smoke[3] = {false, false, false};
+
+#define sw_bit 0
+#define smoke_bit 1
+#define batt_bit 2
 
 //----------Firebase & WiFi----------//
 #define WIFI_SSID "tonieie"
@@ -45,28 +69,32 @@ void onReceive(int packetSize)
     if (index == 0 && buffer[0] != 'n')
       index = 0;
 
-    if (buffer[index - 11] == 'n' && buffer[index - 10] == 'o')
+    if (buffer[index - 11] == 'n' && (buffer[index - 10] == '1' || buffer[index - 10] == '2'))
     {
+      uint8_t node_num = buffer[index - 10] - '0';
 
       for (int i = 11; i >= 0; i--)
         checksum += buffer[index - i];
 
       if (!checksum)
       {
-        temp.asByte[0] = buffer[index - 9];
-        temp.asByte[1] = buffer[index - 8];
-        temp.asByte[2] = buffer[index - 7];
-        temp.asByte[3] = buffer[index - 6];
+        temp[node_num].asByte[0] = buffer[index - 9];
+        temp[node_num].asByte[1] = buffer[index - 8];
+        temp[node_num].asByte[2] = buffer[index - 7];
+        temp[node_num].asByte[3] = buffer[index - 6];
 
-        humid.asByte[0] = buffer[index - 5];
-        humid.asByte[1] = buffer[index - 4];
-        humid.asByte[2] = buffer[index - 3];
-        humid.asByte[3] = buffer[index - 2];
+        humid[node_num].asByte[0] = buffer[index - 5];
+        humid[node_num].asByte[1] = buffer[index - 4];
+        humid[node_num].asByte[2] = buffer[index - 3];
+        humid[node_num].asByte[3] = buffer[index - 2];
 
-        util_byte = buffer[index - 1];
+        flag_batt[node_num] = (buffer[index - 1] >> batt_bit) & 0x01;
+        flag_smoke[node_num] = (buffer[index - 1] >> smoke_bit) & 0x01;
+        flag_switch[node_num] = (buffer[index - 1] >> sw_bit) & 0x01;
+
         index = 0;
       }
-    } 
+    }
 
     index >= 23 ? index = 0 : index++;
   }
@@ -76,6 +104,37 @@ void onTxDone()
 {
   // Serial.println("TxDone");
   LoRa_rxMode();
+}
+
+//----------Sensor Reading----------//
+void readBatt()
+{
+  digitalWrite(18, LOW);
+  float v_batt = (float)analogRead(4);
+  v_batt = v_batt / 4095.0f * 2 * 3.3f;
+
+  if (v_batt <= 3.7f)
+    flag_batt[0] = true;
+  else
+    flag_batt[0] = false;
+}
+
+void readDHT()
+{
+  temp[0].asFloat = dht.readTemperature();
+  humid[0].asFloat = dht.readHumidity();
+}
+
+void readCritical()
+{
+  if (digitalRead(SW_pin) == LOW)
+  {
+    flag_switch[0] = true;
+  }
+  else
+    flag_switch[0] = false;
+
+  //**********Read Smoke**********//
 }
 
 //----------CPU0 Tasks----------//
@@ -90,24 +149,14 @@ void firebase_task(void *pvParam)
   }
 
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
-  while(1)
+  while (1)
   {
-    Firebase.setFloat("node1/temp", temp.asFloat);
-    Firebase.setFloat("node1/humid", humid.asFloat);
-    
+    // Firebase.setFloat("node1/temp", temp.asFloat);
+    // Firebase.setFloat("node1/humid", humid.asFloat);
+
     vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
-
-//----------Global Variable----------//
-union FloatToByte
-{
-  float asFloat;
-  uint8_t asByte[4];
-};
-FloatToByte temp, humid;
-
-uint8_t util_byte = 0;
 
 void setup()
 {
