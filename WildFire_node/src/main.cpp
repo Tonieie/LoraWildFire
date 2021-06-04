@@ -11,6 +11,10 @@
 #define DIO0 25
 #define LEDPin 23
 
+#define DHTPIN 15
+#define SW_pin 19
+#define LED 23
+
 //----------CPU0 Handle----------//
 TaskHandle_t sentToGw_handle = NULL;
 
@@ -19,7 +23,6 @@ TaskHandle_t receiveFromGw_handle = NULL;
 TaskHandle_t ctrlLed_handle = NULL;
 
 //----------Params----------//
-#define DHTPIN 15
 DHT dht(DHTPIN, DHT11);
 
 union FloatToByte
@@ -37,7 +40,6 @@ uint8_t util_byte = 0;
 #define batt_bit 2
 #define led_bit 3
 
-#define SW_pin 19
 
 boolean sent_flag = false;
 
@@ -65,14 +67,16 @@ void onReceive(int packetSize)
 
     if (buffer[index - 4] == 'r' && buffer[index - 3] == 'e' && buffer[index - 2] == 'q' && buffer[index - 1] == ('0' + node_number))
     {
-      if(buffer[index] == 0xFF){
-        digitalWrite(LEDPin,1);
-      }
-      else{
-        digitalWrite(LEDPin,0);
-      }
+      if(buffer[index] == 0xFF)
+        digitalWrite(LED,HIGH);
+      else
+        digitalWrite(LED,LOW);
+
       sent_flag = true;
+      index = 0;
     }
+
+    index >= 9? index = 0 : index++;
   }
 }
 
@@ -116,14 +120,14 @@ void readCritical()
 
 }
 
-uint8_t setBit(uint8_t *data, uint8_t bit)
+void setBit(uint8_t *data, uint8_t bit)
 {
-  return *data |= (1 << bit);
+   *data |= (1 << bit);
 }
 
-uint8_t clearBit(uint8_t *data, uint8_t bit)
+void clearBit(uint8_t *data, uint8_t bit)
 {
-  return *data &= ~(1 << bit);
+   *data &= ~(1 << bit);
 }
 
 //----------CPU0 Task----------//
