@@ -29,6 +29,7 @@ union FloatToByte
 
 FloatToByte temp, humid;
 uint8_t util_byte = 0;
+uint8_t LED_Byte = 0x00;
 
 #define node_number 1
 #define sw_bit 0
@@ -62,8 +63,9 @@ void onReceive(int packetSize)
   {
     buffer[index] = (uint8_t)LoRa.read();
 
-    if (buffer[index - 3] == 'r' && buffer[index - 2] == 'e' && buffer[index - 1] == 'q' && buffer[index] == ('0' + node_number))
+    if (buffer[index - 4] == 'r' && buffer[index - 3] == 'e' && buffer[index - 2] == 'q' && buffer[index - 1] == ('0' + node_number))
     {
+      buffer[index] = LED_Byte;
       sent_flag = true;
     }
   }
