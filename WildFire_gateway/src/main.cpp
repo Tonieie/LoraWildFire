@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
-// #include <IOXhop_FirebaseESP32.h>
+
 #include <FirebaseESP32.h>
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
@@ -46,7 +46,6 @@ boolean flag_danger = false;
 #define WIFI_SSID "tonieie"
 #define WIFI_PASSWORD "78787862x"
 
-
 #define API_KEY "AIzaSyDvs4yCvhcPnYBcGcL8svJMnOBWrts9vmg"
 #define DATABASE_URL "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
 #define USER_EMAIL "s6201011620127@email.kmutnb.ac.th"
@@ -55,6 +54,9 @@ boolean flag_danger = false;
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
+
+FirebaseJsonArray data_arr[3];
+uint8_t firebase_index;
 
 //----------CPU0 Handle----------//
 TaskHandle_t cpu0_taskhandle = NULL;
@@ -132,7 +134,6 @@ void onReceive(int packetSize)
 
 void onTxDone()
 {
-  // Serial.println("TxDone");
   LoRa_rxMode();
 }
 
@@ -212,19 +213,13 @@ void req_task(void *pvParam)
 
     if (current_time.tm_min == 34)
     {
-      // if (current_time.tm_hour % 4 == 0)
-      // {
-      //   sentToNd('1', 0);
-      //   sentToNd('2', 0);
-      // }
-      // else
+
       if (current_time.tm_hour == 21)
       {
         flag_ack[0] = true;
       }
-
-      vTaskDelay(pdMS_TO_TICKS(60000)); //pause task for 55 mins
     }
+
     if (flag_ack[0] == true)
     {
       if (flag_ack[1] == false && flag_ack[2] == false)
@@ -244,12 +239,51 @@ void req_task(void *pvParam)
   }
 }
 
+void sentToFirebase()
+{
+  
+  static boolean firsttime = true;
+  if(firsttime)
+  {
+    Firebase.getArray(fbdo,"/gateway");
+    data_arr[0] = fbdo.jsonArray();
+    Firebase.getArray(fbdo,"/node1");
+    data_arr[1] = fbdo.jsonArray();
+    Firebase.getArray(fbdo,"/node2");
+    data_arr[2] = fbdo.jsonArray();
+    firebase_index = data_arr[0].size();
+
+    firsttime = false;
+  }
+  struct tm time_now;
+  getLocalTime(&time_now);
+  char timeBuff[50]; //50 chars should be enough
+  strftime(timeBuff, sizeof(timeBuff), "%A %B %d %Y %H:%M:%S", &time_now);
+  String timeBuff2(timeBuff);
+
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    data_arr[i].set("[" + String(firebase_index) + "]/temp", temp[i].asFloat);
+    data_arr[i].set("[" + String(firebase_index) + "]/humid", humid[i].asFloat);
+    data_arr[i].set("[" + String(firebase_index) + "]/batt", true);
+    data_arr[i].set("[" + String(firebase_index) + "]/smoke", true);
+    data_arr[i].set("[" + String(firebase_index) + "]/switch", true);
+    data_arr[i].set("[" + String(firebase_index) + "]/timestamp", timeBuff2);
+  }
+
+  Firebase.setArray(fbdo, "/gateway", data_arr[0]);
+  Firebase.setArray(fbdo, "/node1", data_arr[1]);
+  Firebase.setArray(fbdo, "/node2", data_arr[2]);
+  firebase_index >= 250? firebase_index = 0 : firebase_index++;
+  Serial.println("sent to firebase");
+}
+
 void setup()
 {
 
   Serial.begin(115200);
 
-//Connect to WiFi
+  //Connect to WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
   while (WiFi.status() != WL_CONNECTED)
@@ -258,7 +292,7 @@ void setup()
     delay(300);
   }
 
-//Firebase Init
+  //Firebase Init
   config.api_key = API_KEY;
   auth.user.email = USER_EMAIL;
   auth.user.password = USER_PASSWORD;
@@ -266,8 +300,7 @@ void setup()
   config.token_status_callback = tokenStatusCallback;
   Firebase.begin(&config, &auth);
 
-
-//setup LoRa module (sx1276) with frequency 923.2 MHz
+  //setup LoRa module (sx1276) with frequency 923.2 MHz
   SPI.begin(SCK, MISO, MOSI, SS);
   LoRa.setPins(SS, RST, DIO0);
   if (!LoRa.begin(923.2E6))
@@ -282,12 +315,18 @@ void setup()
 
   configTime(7 * 60 * 60, 0, "pool.ntp.org"); //setup for NTP request
 
-  xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
-  xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
+  // xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
+  // xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
 
   pinMode(SW_pin, INPUT);
 }
 
 void loop()
 {
+  static uint32_t lastt = millis();
+  if (millis() - lastt >= 10000)
+  {
+    lastt = millis();
+    sentToFirebase();
+  }
 }
