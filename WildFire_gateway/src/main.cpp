@@ -3,7 +3,11 @@
 #include <WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
-#include <IOXhop_FirebaseESP32.h>
+// #include <IOXhop_FirebaseESP32.h>
+#include <FirebaseESP32.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
+
 #include <time.h>
 
 //----------Pin define----------//
@@ -39,11 +43,18 @@ boolean flag_danger = false;
 #define batt_bit 2
 
 //----------Firebase & WiFi----------//
-#define WIFI_SSID "NKH1449_2.4G"
-#define WIFI_PASSWORD "0851404547"
+#define WIFI_SSID "tonieie"
+#define WIFI_PASSWORD "78787862x"
 
-#define FIREBASE_HOST "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
-#define FIREBASE_AUTH "FPtMYEMGMHvsWgNSfsVG9ybfW8FMtRtW2dIywlOn"
+
+#define API_KEY "AIzaSyDvs4yCvhcPnYBcGcL8svJMnOBWrts9vmg"
+#define DATABASE_URL "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
+#define USER_EMAIL "s6201011620127@email.kmutnb.ac.th"
+#define USER_PASSWORD "78787862x"
+
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
 
 //----------CPU0 Handle----------//
 TaskHandle_t cpu0_taskhandle = NULL;
@@ -108,7 +119,7 @@ void onReceive(int packetSize)
         flag_batt[node_num] = (buffer[index - 1] >> batt_bit) & 0x01;
         flag_smoke[node_num] = (buffer[index - 1] >> smoke_bit) & 0x01;
         flag_switch[node_num] = (buffer[index - 1] >> sw_bit) & 0x01;
-        if(flag_smoke[node_num] || flag_switch[node_num])
+        if (flag_smoke[node_num] || flag_switch[node_num])
           flag_danger = true;
         flag_ack[node_num] = true;
         index = 0;
@@ -164,22 +175,22 @@ void net_task(void *pvParam)
   {
     // Firebase.setFloat("node1/temp", temp.asFloat);
     // Firebase.setFloat("node1/humid", humid.asFloat);
-    if(flag_net || flag_danger)
+    if (flag_net || flag_danger)
     {
-      if(flag_smoke[1])
+      if (flag_smoke[1])
         Serial.println("node1 smoke");
-      else if(flag_smoke[2])
+      else if (flag_smoke[2])
         Serial.println("node2 smoke");
       else
         Serial.println("smoke fine");
 
-      if(flag_switch[1])
+      if (flag_switch[1])
         Serial.println("node1 switch");
-      if(flag_switch[2])
+      if (flag_switch[2])
         Serial.println("node2 switch");
       else
         Serial.println("switch fine");
-      
+
       flag_net = false;
       flag_danger = false;
     }
@@ -216,11 +227,12 @@ void req_task(void *pvParam)
     }
     if (flag_ack[0] == true)
     {
-      if(flag_ack[1] == false && flag_ack[2] == false)
+      if (flag_ack[1] == false && flag_ack[2] == false)
         sentToNd('1', 0xFF);
-      else if(flag_ack[1] == true && flag_ack[2] == false)
+      else if (flag_ack[1] == true && flag_ack[2] == false)
         sentToNd('2', 0xFF);
-      else if(flag_ack[1] == true && flag_ack[2] == true){
+      else if (flag_ack[1] == true && flag_ack[2] == true)
+      {
         flag_ack[0] = false;
         flag_ack[1] = false;
         flag_ack[2] = false;
@@ -232,12 +244,12 @@ void req_task(void *pvParam)
   }
 }
 
-
 void setup()
 {
 
-  Serial.begin(57600);
-  // while(!Serial);
+  Serial.begin(115200);
+
+//Connect to WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
   while (WiFi.status() != WL_CONNECTED)
@@ -245,10 +257,17 @@ void setup()
     Serial.print(".");
     delay(300);
   }
-  configTime(7 * 60 * 60, 0, "pool.ntp.org");
-  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
 
-  //setup LoRa module (sx1276) with frequency 923.2 MHz
+//Firebase Init
+  config.api_key = API_KEY;
+  auth.user.email = USER_EMAIL;
+  auth.user.password = USER_PASSWORD;
+  config.database_url = DATABASE_URL;
+  config.token_status_callback = tokenStatusCallback;
+  Firebase.begin(&config, &auth);
+
+
+//setup LoRa module (sx1276) with frequency 923.2 MHz
   SPI.begin(SCK, MISO, MOSI, SS);
   LoRa.setPins(SS, RST, DIO0);
   if (!LoRa.begin(923.2E6))
@@ -257,19 +276,18 @@ void setup()
     while (1)
       ;
   }
-
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
   LoRa_rxMode();
 
-  // xTaskCreatePinnedToCore(cpu0_task, "cpu0_task", 10000, NULL, 0, &cpu0_taskhandle, 0);
+  configTime(7 * 60 * 60, 0, "pool.ntp.org"); //setup for NTP request
+
   xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
   xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
+
   pinMode(SW_pin, INPUT);
-  Serial.println("in");
 }
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
 }
