@@ -37,6 +37,7 @@ boolean flag_smoke[3] = {false, false, false};
 boolean flag_ack[3] = {false, false, false};
 boolean flag_net = false;
 boolean flag_danger = false;
+boolean flag_isOK = false;
 
 #define sw_bit 0
 #define smoke_bit 1
@@ -58,11 +59,11 @@ FirebaseConfig config;
 FirebaseJsonArray data_arr[3];
 uint8_t firebase_index;
 
-//----------CPU0 Handle----------//
-TaskHandle_t cpu0_taskhandle = NULL;
-TaskHandle_t req_taskhandle = NULL;
+struct tm current_time;
 
-TaskHandle_t net_taskhandle = NULL;
+//----------CPU1 Handle----------//
+TaskHandle_t req_taskhandle = NULL;
+TaskHandle_t sentInternet_taskhandle = NULL;
 
 //----------LoRa Tasks----------//
 void LoRa_rxMode()
@@ -169,52 +170,16 @@ void readCritical()
 }
 
 //----------CPU0 Tasks----------//
-void net_task(void *pvParam)
-{
-
-  while (1)
-  {
-    // Firebase.setFloat("node1/temp", temp.asFloat);
-    // Firebase.setFloat("node1/humid", humid.asFloat);
-    if (flag_net || flag_danger)
-    {
-      if (flag_smoke[1])
-        Serial.println("node1 smoke");
-      else if (flag_smoke[2])
-        Serial.println("node2 smoke");
-      else
-        Serial.println("smoke fine");
-
-      if (flag_switch[1])
-        Serial.println("node1 switch");
-      if (flag_switch[2])
-        Serial.println("node2 switch");
-      else
-        Serial.println("switch fine");
-
-      flag_net = false;
-      flag_danger = false;
-    }
-    vTaskDelay(1000);
-  }
-}
 
 //----------CPU1 Tasks----------//
 void req_task(void *pvParam)
 {
-  struct tm current_time;
   while (1)
   {
-    Serial.println("in task");
-    if (!getLocalTime(&current_time))
-    {
-      Serial.println("Failed to obtain time");
-    }
-
-    if (current_time.tm_min == 34)
+    if (current_time.tm_min == 37)
     {
 
-      if (current_time.tm_hour == 21)
+      if (current_time.tm_hour == 23)
       {
         flag_ack[0] = true;
       }
@@ -228,28 +193,28 @@ void req_task(void *pvParam)
         sentToNd('2', 0xFF);
       else if (flag_ack[1] == true && flag_ack[2] == true)
       {
+        flag_net = true;
         flag_ack[0] = false;
         flag_ack[1] = false;
         flag_ack[2] = false;
-        flag_net = true;
         Serial.println("ieei send");
       }
     }
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(10000));
   }
 }
 
 void sentToFirebase()
 {
-  
+
   static boolean firsttime = true;
-  if(firsttime)
+  if (firsttime)
   {
-    Firebase.getArray(fbdo,"/gateway");
+    Firebase.getArray(fbdo, "/gateway");
     data_arr[0] = fbdo.jsonArray();
-    Firebase.getArray(fbdo,"/node1");
+    Firebase.getArray(fbdo, "/node1");
     data_arr[1] = fbdo.jsonArray();
-    Firebase.getArray(fbdo,"/node2");
+    Firebase.getArray(fbdo, "/node2");
     data_arr[2] = fbdo.jsonArray();
     firebase_index = data_arr[0].size();
 
@@ -265,17 +230,38 @@ void sentToFirebase()
   {
     data_arr[i].set("[" + String(firebase_index) + "]/temp", temp[i].asFloat);
     data_arr[i].set("[" + String(firebase_index) + "]/humid", humid[i].asFloat);
-    data_arr[i].set("[" + String(firebase_index) + "]/batt", true);
-    data_arr[i].set("[" + String(firebase_index) + "]/smoke", true);
-    data_arr[i].set("[" + String(firebase_index) + "]/switch", true);
+    data_arr[i].set("[" + String(firebase_index) + "]/batt", flag_batt[i]);
+    data_arr[i].set("[" + String(firebase_index) + "]/smoke", flag_smoke[i]);
+    data_arr[i].set("[" + String(firebase_index) + "]/switch", flag_switch[i]);
     data_arr[i].set("[" + String(firebase_index) + "]/timestamp", timeBuff2);
   }
 
   Firebase.setArray(fbdo, "/gateway", data_arr[0]);
   Firebase.setArray(fbdo, "/node1", data_arr[1]);
   Firebase.setArray(fbdo, "/node2", data_arr[2]);
-  firebase_index >= 250? firebase_index = 0 : firebase_index++;
+  firebase_index >= 250 ? firebase_index = 0 : firebase_index++;
   Serial.println("sent to firebase");
+}
+
+void sentInternet_task(void *pvParam)
+{
+  while (1)
+  {
+    if (flag_danger || flag_net)
+    {
+      sentToFirebase();
+
+      flag_net = false;
+      flag_danger = false;
+    }
+
+    if (!getLocalTime(&current_time))
+    {
+      Serial.println("Failed to obtain time");
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
 }
 
 void setup()
@@ -315,7 +301,8 @@ void setup()
 
   configTime(7 * 60 * 60, 0, "pool.ntp.org"); //setup for NTP request
 
-  // xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
+  xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
+  xTaskCreatePinnedToCore(sentInternet_task, "sentInternet_task", 10000, NULL, 1, &sentInternet_taskhandle, 1);
   // xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
 
   pinMode(SW_pin, INPUT);
@@ -323,10 +310,4 @@ void setup()
 
 void loop()
 {
-  static uint32_t lastt = millis();
-  if (millis() - lastt >= 10000)
-  {
-    lastt = millis();
-    sentToFirebase();
-  }
 }
