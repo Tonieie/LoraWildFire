@@ -31,6 +31,8 @@ boolean flag_batt[3] = {false, false, false};
 boolean flag_switch[3] = {false, false, false};
 boolean flag_smoke[3] = {false, false, false};
 boolean flag_ack[3] = {false, false, false};
+boolean flag_net = false;
+boolean flag_danger = false;
 
 #define sw_bit 0
 #define smoke_bit 1
@@ -46,6 +48,8 @@ boolean flag_ack[3] = {false, false, false};
 //----------CPU0 Handle----------//
 TaskHandle_t cpu0_taskhandle = NULL;
 TaskHandle_t req_taskhandle = NULL;
+
+TaskHandle_t net_taskhandle = NULL;
 
 //----------LoRa Tasks----------//
 void LoRa_rxMode()
@@ -104,6 +108,8 @@ void onReceive(int packetSize)
         flag_batt[node_num] = (buffer[index - 1] >> batt_bit) & 0x01;
         flag_smoke[node_num] = (buffer[index - 1] >> smoke_bit) & 0x01;
         flag_switch[node_num] = (buffer[index - 1] >> sw_bit) & 0x01;
+        if(flag_smoke[node_num] || flag_switch[node_num])
+          flag_danger = true;
         flag_ack[node_num] = true;
         index = 0;
       }
@@ -151,13 +157,32 @@ void readCritical()
 }
 
 //----------CPU0 Tasks----------//
-void cpu0_task(void *pvParam)
+void net_task(void *pvParam)
 {
 
   while (1)
   {
     // Firebase.setFloat("node1/temp", temp.asFloat);
     // Firebase.setFloat("node1/humid", humid.asFloat);
+    if(flag_net || flag_danger)
+    {
+      if(flag_smoke[1])
+        Serial.println("node1 smoke");
+      else if(flag_smoke[2])
+        Serial.println("node2 smoke");
+      else
+        Serial.println("smoke fine");
+
+      if(flag_switch[1])
+        Serial.println("node1 switch");
+      if(flag_switch[2])
+        Serial.println("node2 switch");
+      else
+        Serial.println("switch fine");
+      
+      flag_net = false;
+      flag_danger = false;
+    }
     vTaskDelay(1000);
   }
 }
@@ -199,12 +224,14 @@ void req_task(void *pvParam)
         flag_ack[0] = false;
         flag_ack[1] = false;
         flag_ack[2] = false;
+        flag_net = true;
         Serial.println("ieei send");
       }
     }
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
+
 
 void setup()
 {
@@ -237,6 +264,7 @@ void setup()
 
   // xTaskCreatePinnedToCore(cpu0_task, "cpu0_task", 10000, NULL, 0, &cpu0_taskhandle, 0);
   xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
+  xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
   pinMode(SW_pin, INPUT);
   Serial.println("in");
 }
