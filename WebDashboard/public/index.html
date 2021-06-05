@@ -264,16 +264,6 @@
       var noderef = firebase.database().ref(ref);
       noderef.on('child_added', (snapshot) => {
         const data = snapshot.val();
-        if (data.timestamp == null) {
-          var dd = new Date;
-          dd = dd.toString();
-          var last_child_ref = noderef.child("/" + snapshot.ref.key)
-          last_child_ref.update(
-            {
-              timestamp: dd
-            }
-          )
-        }
 
         var fire_img = document.getElementById(ref + '_fire');
         if (data.smoke == true)
@@ -282,7 +272,7 @@
           fire_img.src = "img/fire_off.png"
 
         var sos_img = document.getElementById(ref + '_sos');
-        if (data.sos == true)
+        if (data.switch == true)
           sos_img.src = "img/sos_on.png"
         else
           sos_img.src = "img/sos_off.png"
