@@ -52,6 +52,8 @@ boolean flag_isOK = false;
 #define USER_EMAIL "s6201011620127@email.kmutnb.ac.th"
 #define USER_PASSWORD "78787862x"
 
+#define MAXIMUM_TRY 5
+
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
@@ -176,31 +178,33 @@ void req_task(void *pvParam)
 {
   while (1)
   {
-    if (current_time.tm_min == 37)
+    if (current_time.tm_min == 20)
     {
 
-      if (current_time.tm_hour == 23)
+      if (current_time.tm_hour == 11)
       {
-        flag_ack[0] = true;
-      }
-    }
-
-    if (flag_ack[0] == true)
-    {
-      if (flag_ack[1] == false && flag_ack[2] == false)
-        sentToNd('1', 0xFF);
-      else if (flag_ack[1] == true && flag_ack[2] == false)
-        sentToNd('2', 0xFF);
-      else if (flag_ack[1] == true && flag_ack[2] == true)
-      {
+        uint8_t try_count = 0;
+        while (flag_ack[1] == false && try_count < MAXIMUM_TRY)
+        {
+          try_count++;
+          sentToNd('1', 0xFF);
+          Serial.println("try node1 : " + String(try_count));
+          vTaskDelay(pdMS_TO_TICKS(10000));
+        }
+        try_count = 0;
+        while (flag_ack[2] == false && try_count < MAXIMUM_TRY)
+        {
+          try_count++;
+          sentToNd('2', 0xFF);
+          Serial.println("try node2 : " + String(try_count));
+          vTaskDelay(pdMS_TO_TICKS(10000));
+        }
         flag_net = true;
-        flag_ack[0] = false;
-        flag_ack[1] = false;
-        flag_ack[2] = false;
-        Serial.println("ieei send");
+        vTaskDelay(pdMS_TO_TICKS(60*60*1000));
       }
     }
-    vTaskDelay(pdMS_TO_TICKS(10000));
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 
@@ -220,6 +224,7 @@ void sentToFirebase()
 
     firsttime = false;
   }
+
   struct tm time_now;
   getLocalTime(&time_now);
   char timeBuff[50]; //50 chars should be enough
@@ -234,6 +239,7 @@ void sentToFirebase()
     data_arr[i].set("[" + String(firebase_index) + "]/smoke", flag_smoke[i]);
     data_arr[i].set("[" + String(firebase_index) + "]/switch", flag_switch[i]);
     data_arr[i].set("[" + String(firebase_index) + "]/timestamp", timeBuff2);
+    data_arr[i].set("[" + String(firebase_index) + "]/isOK", flag_ack[i]);
   }
 
   Firebase.setArray(fbdo, "/gateway", data_arr[0]);
@@ -249,10 +255,15 @@ void sentInternet_task(void *pvParam)
   {
     if (flag_danger || flag_net)
     {
+      flag_ack[0] = true;
+      
       sentToFirebase();
 
       flag_net = false;
       flag_danger = false;
+      flag_ack[0] = false;
+      flag_ack[1] = false;
+      flag_ack[2] = false;
     }
 
     if (!getLocalTime(&current_time))
