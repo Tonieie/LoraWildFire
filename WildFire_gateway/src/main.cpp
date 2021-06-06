@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
+#include <BlynkSimpleEsp32.h>
 
 #include <FirebaseESP32.h>
 #include "addons/TokenHelper.h"
@@ -52,6 +53,8 @@ boolean flag_isOK = false;
 #define USER_EMAIL "s6201011620127@email.kmutnb.ac.th"
 #define USER_PASSWORD "78787862x"
 
+#define Blynk_TOKEN "6IcpR9OcnSMVpMRdY0VOIQ1CGN-eyHRH"
+
 #define MAXIMUM_TRY 5
 
 FirebaseData fbdo;
@@ -63,10 +66,14 @@ uint8_t firebase_index;
 
 struct tm current_time;
 
-//----------CPU1 Handle----------//
+//----------Task Handle----------//
 TaskHandle_t req_taskhandle = NULL;
 TaskHandle_t sentInternet_taskhandle = NULL;
+TaskHandle_t sentToFirebase_taskhandle = NULL;
+TaskHandle_t sentToLine_taskhandle = NULL;
 
+TaskHandle_t blynk_taskhandle = NULL;
+TaskHandle_t sentToBlynk_taskhandle = NULL;
 //----------LoRa Tasks----------//
 void LoRa_rxMode()
 {
@@ -172,48 +179,75 @@ void readCritical()
 }
 
 //----------CPU0 Tasks----------//
+void blynk_task(void *pvParam)
+{
+  //Blynk init
+  Blynk.begin(Blynk_TOKEN, WIFI_SSID, WIFI_PASSWORD, IPAddress(43, 229, 135, 169), 8080);
+  while (1)
+  {
+    Blynk.run();
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
 
+void sentToBlynk_task(void *pvParam)
+{
+  Blynk.virtualWrite(V2, temp[0].asFloat);
+  Blynk.virtualWrite(V3, humid[0].asFloat);
+  Blynk.virtualWrite(V4, temp[1].asFloat);
+  Blynk.virtualWrite(V5, humid[1].asFloat);
+  Blynk.virtualWrite(V6, temp[2].asFloat);
+  Blynk.virtualWrite(V7, humid[2].asFloat);
+
+  Serial.println("sent to blynk");
+
+  vTaskSuspend(sentToBlynk_taskhandle);
+}
 //----------CPU1 Tasks----------//
 void req_task(void *pvParam)
 {
   while (1)
   {
-    if (current_time.tm_min == 20)
-    {
 
-      if (current_time.tm_hour == 11)
-      {
-        uint8_t try_count = 0;
-        while (flag_ack[1] == false && try_count < MAXIMUM_TRY)
-        {
-          try_count++;
-          sentToNd('1', 0xFF);
-          Serial.println("try node1 : " + String(try_count));
-          vTaskDelay(pdMS_TO_TICKS(10000));
-        }
-        try_count = 0;
-        while (flag_ack[2] == false && try_count < MAXIMUM_TRY)
-        {
-          try_count++;
-          sentToNd('2', 0xFF);
-          Serial.println("try node2 : " + String(try_count));
-          vTaskDelay(pdMS_TO_TICKS(10000));
-        }
-        flag_net = true;
-        vTaskDelay(pdMS_TO_TICKS(60*60*1000));
-      }
+    uint8_t try_count = 0;
+    while (flag_ack[1] == false && try_count < MAXIMUM_TRY)
+    {
+      try_count++;
+      sentToNd('1', 0xFF);
+      Serial.println("try node1 : " + String(try_count));
+      vTaskDelay(pdMS_TO_TICKS(10000));
+    }
+    try_count = 0;
+    while (flag_ack[2] == false && try_count < MAXIMUM_TRY)
+    {
+      try_count++;
+      sentToNd('2', 0xFF);
+      Serial.println("try node2 : " + String(try_count));
+      vTaskDelay(pdMS_TO_TICKS(10000));
     }
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    flag_net = true;
+    vTaskSuspend(req_taskhandle);
   }
 }
 
-void sentToFirebase()
+void sentToFirebase_task(void *pvParam)
 {
-
+  while (1)
+  {
+  
   static boolean firsttime = true;
   if (firsttime)
   {
+    //Firebase Init
+    config.api_key = API_KEY;
+    auth.user.email = USER_EMAIL;
+    auth.user.password = USER_PASSWORD;
+    config.database_url = DATABASE_URL;
+    config.token_status_callback = tokenStatusCallback;
+    Firebase.begin(&config, &auth);
+    vTaskDelay(pdMS_TO_TICKS(10000));
+
     Firebase.getArray(fbdo, "/gateway");
     data_arr[0] = fbdo.jsonArray();
     Firebase.getArray(fbdo, "/node1");
@@ -246,17 +280,49 @@ void sentToFirebase()
   Firebase.setArray(fbdo, "/node1", data_arr[1]);
   Firebase.setArray(fbdo, "/node2", data_arr[2]);
   firebase_index >= 250 ? firebase_index = 0 : firebase_index++;
+
   Serial.println("sent to firebase");
+  vTaskSuspend(sentToFirebase_taskhandle)
+  }
+}
+
+void sentToLine_task(void *pvParam)
+{
+  while (1)
+  {
+    /* code */
+  
+  
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    if(flag_batt[i])
+      
+  }
+
+  vTaskSuspend(sentToLine_taskhandle);
+  }
 }
 
 void sentInternet_task(void *pvParam)
 {
   while (1)
   {
+
+    if (!getLocalTime(&current_time))
+    {
+      Serial.println("Failed to obtain time");
+    }
+
+    if (current_time.tm_hour == 13 && current_time.tm_min == 6 && current_time.tm_sec <= 10)
+    {
+      vTaskResume(req_taskhandle);
+    }
+
     if (flag_danger || flag_net)
     {
       flag_ack[0] = true;
-      
+      vTaskResume(sentToBlynk_taskhandle);
+      Serial.println("sent to blynk");
       sentToFirebase();
 
       flag_net = false;
@@ -264,11 +330,6 @@ void sentInternet_task(void *pvParam)
       flag_ack[0] = false;
       flag_ack[1] = false;
       flag_ack[2] = false;
-    }
-
-    if (!getLocalTime(&current_time))
-    {
-      Serial.println("Failed to obtain time");
     }
 
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -289,14 +350,6 @@ void setup()
     delay(300);
   }
 
-  //Firebase Init
-  config.api_key = API_KEY;
-  auth.user.email = USER_EMAIL;
-  auth.user.password = USER_PASSWORD;
-  config.database_url = DATABASE_URL;
-  config.token_status_callback = tokenStatusCallback;
-  Firebase.begin(&config, &auth);
-
   //setup LoRa module (sx1276) with frequency 923.2 MHz
   SPI.begin(SCK, MISO, MOSI, SS);
   LoRa.setPins(SS, RST, DIO0);
@@ -312,8 +365,18 @@ void setup()
 
   configTime(7 * 60 * 60, 0, "pool.ntp.org"); //setup for NTP request
 
-  xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
+  xTaskCreatePinnedToCore(blynk_task, "blynk_task", 10000, NULL, 1, &blynk_taskhandle, 0);
+  xTaskCreatePinnedToCore(sentToBlynk_task, "sentToBlynk_task", 3000, NULL, 1, &sentToBlynk_taskhandle, 0);
+  vTaskSuspend(sentToBlynk_taskhandle);
+
   xTaskCreatePinnedToCore(sentInternet_task, "sentInternet_task", 10000, NULL, 1, &sentInternet_taskhandle, 1);
+  xTaskCreatePinnedToCore(req_task, "req_task", 3000, NULL, 1, &req_taskhandle, 1);
+  vTaskSuspend(req_taskhandle);
+  xTaskCreatePinnedToCore(sentToFirebase_task, "sentToFirebase_task", 10000, NULL, 1, &sentToFirebase_taskhandle, 1);
+  vTaskSuspend(sentToFirebase_taskhandle);
+  xTaskCreatePinnedToCore(sentToLine_task, "sentToLine_task", 3000, NULL, 1, &sentToLine_taskhandle, 1);
+  vTaskSuspend(sentToLine_taskhandle);
+  
   // xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
 
   pinMode(SW_pin, INPUT);
