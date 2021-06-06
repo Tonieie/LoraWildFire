@@ -3,7 +3,9 @@
 #include <WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
+
 #include <BlynkSimpleEsp32.h>
+#include <TridentTD_LineNotify.h>
 
 #include <FirebaseESP32.h>
 #include "addons/TokenHelper.h"
@@ -54,6 +56,7 @@ boolean flag_isOK = false;
 #define USER_PASSWORD "78787862x"
 
 #define Blynk_TOKEN "6IcpR9OcnSMVpMRdY0VOIQ1CGN-eyHRH"
+#define LINE_TOKEN "v4S7Qkx1WAwGM1zIVgMLjYNS2sGKKqjDI6DgmTi49Dp"
 
 #define MAXIMUM_TRY 5
 
@@ -89,7 +92,6 @@ void LoRa_txMode()
 
 void sentToNd(char node_num, uint8_t LED_Byte) // r e q node led
 {
-  uint8_t checksum = 0;
   uint8_t payload[] = {'r', 'e', 'q', node_num, LED_Byte};
   LoRa_txMode();
   LoRa.beginPacket();
@@ -192,16 +194,19 @@ void blynk_task(void *pvParam)
 
 void sentToBlynk_task(void *pvParam)
 {
-  Blynk.virtualWrite(V2, temp[0].asFloat);
-  Blynk.virtualWrite(V3, humid[0].asFloat);
-  Blynk.virtualWrite(V4, temp[1].asFloat);
-  Blynk.virtualWrite(V5, humid[1].asFloat);
-  Blynk.virtualWrite(V6, temp[2].asFloat);
-  Blynk.virtualWrite(V7, humid[2].asFloat);
+  while (1)
+  {
+    Blynk.virtualWrite(V2, temp[0].asFloat);
+    Blynk.virtualWrite(V3, humid[0].asFloat);
+    Blynk.virtualWrite(V4, temp[1].asFloat);
+    Blynk.virtualWrite(V5, humid[1].asFloat);
+    Blynk.virtualWrite(V6, temp[2].asFloat);
+    Blynk.virtualWrite(V7, humid[2].asFloat);
 
-  Serial.println("sent to blynk");
+    Serial.println("sent to blynk");
 
-  vTaskSuspend(sentToBlynk_taskhandle);
+    vTaskSuspend(sentToBlynk_taskhandle);
+  }
 }
 //----------CPU1 Tasks----------//
 void req_task(void *pvParam)
@@ -235,71 +240,84 @@ void sentToFirebase_task(void *pvParam)
 {
   while (1)
   {
-  
-  static boolean firsttime = true;
-  if (firsttime)
-  {
-    //Firebase Init
-    config.api_key = API_KEY;
-    auth.user.email = USER_EMAIL;
-    auth.user.password = USER_PASSWORD;
-    config.database_url = DATABASE_URL;
-    config.token_status_callback = tokenStatusCallback;
-    Firebase.begin(&config, &auth);
-    vTaskDelay(pdMS_TO_TICKS(10000));
 
-    Firebase.getArray(fbdo, "/gateway");
-    data_arr[0] = fbdo.jsonArray();
-    Firebase.getArray(fbdo, "/node1");
-    data_arr[1] = fbdo.jsonArray();
-    Firebase.getArray(fbdo, "/node2");
-    data_arr[2] = fbdo.jsonArray();
-    firebase_index = data_arr[0].size();
+    static boolean firsttime = true;
+    if (firsttime)
+    {
+      //Firebase Init
+      config.api_key = API_KEY;
+      auth.user.email = USER_EMAIL;
+      auth.user.password = USER_PASSWORD;
+      config.database_url = DATABASE_URL;
+      config.token_status_callback = tokenStatusCallback;
+      Firebase.begin(&config, &auth);
+      vTaskDelay(pdMS_TO_TICKS(10000));
 
-    firsttime = false;
-  }
+      Firebase.getArray(fbdo, "/gateway");
+      data_arr[0] = fbdo.jsonArray();
+      Firebase.getArray(fbdo, "/node1");
+      data_arr[1] = fbdo.jsonArray();
+      Firebase.getArray(fbdo, "/node2");
+      data_arr[2] = fbdo.jsonArray();
+      firebase_index = data_arr[0].size();
 
-  struct tm time_now;
-  getLocalTime(&time_now);
-  char timeBuff[50]; //50 chars should be enough
-  strftime(timeBuff, sizeof(timeBuff), "%A %B %d %Y %H:%M:%S", &time_now);
-  String timeBuff2(timeBuff);
+      firsttime = false;
+    }
 
-  for (uint8_t i = 0; i < 3; i++)
-  {
-    data_arr[i].set("[" + String(firebase_index) + "]/temp", temp[i].asFloat);
-    data_arr[i].set("[" + String(firebase_index) + "]/humid", humid[i].asFloat);
-    data_arr[i].set("[" + String(firebase_index) + "]/batt", flag_batt[i]);
-    data_arr[i].set("[" + String(firebase_index) + "]/smoke", flag_smoke[i]);
-    data_arr[i].set("[" + String(firebase_index) + "]/switch", flag_switch[i]);
-    data_arr[i].set("[" + String(firebase_index) + "]/timestamp", timeBuff2);
-    data_arr[i].set("[" + String(firebase_index) + "]/isOK", flag_ack[i]);
-  }
+    struct tm time_now;
+    getLocalTime(&time_now);
+    char timeBuff[50]; //50 chars should be enough
+    strftime(timeBuff, sizeof(timeBuff), "%A %B %d %Y %H:%M:%S", &time_now);
+    String timeBuff2(timeBuff);
 
-  Firebase.setArray(fbdo, "/gateway", data_arr[0]);
-  Firebase.setArray(fbdo, "/node1", data_arr[1]);
-  Firebase.setArray(fbdo, "/node2", data_arr[2]);
-  firebase_index >= 250 ? firebase_index = 0 : firebase_index++;
+    for (uint8_t i = 0; i < 3; i++)
+    {
+      data_arr[i].set("[" + String(firebase_index) + "]/temp", temp[i].asFloat);
+      data_arr[i].set("[" + String(firebase_index) + "]/humid", humid[i].asFloat);
+      data_arr[i].set("[" + String(firebase_index) + "]/batt", flag_batt[i]);
+      data_arr[i].set("[" + String(firebase_index) + "]/smoke", flag_smoke[i]);
+      data_arr[i].set("[" + String(firebase_index) + "]/switch", flag_switch[i]);
+      data_arr[i].set("[" + String(firebase_index) + "]/timestamp", timeBuff2);
+      data_arr[i].set("[" + String(firebase_index) + "]/isOK", flag_ack[i]);
+    }
 
-  Serial.println("sent to firebase");
-  vTaskSuspend(sentToFirebase_taskhandle)
+    Firebase.setArray(fbdo, "/gateway", data_arr[0]);
+    Firebase.setArray(fbdo, "/node1", data_arr[1]);
+    Firebase.setArray(fbdo, "/node2", data_arr[2]);
+    firebase_index >= 250 ? firebase_index = 0 : firebase_index++;
+
+    Serial.println("sent to firebase");
+    vTaskSuspend(sentToFirebase_taskhandle);
   }
 }
 
 void sentToLine_task(void *pvParam)
 {
+  LINE.setToken(LINE_TOKEN);
+  String node[3] = {"Gateway", "Node 1", "Node 2"};
   while (1)
   {
     /* code */
-  
-  
-  for (uint8_t i = 0; i < 3; i++)
-  {
-    if(flag_batt[i])
-      
-  }
+    Serial.print("flag : ");
+    
+    for (uint8_t i = 0; i < 3; i++)
+    {
+      Serial.print("Smoke" + String(i) + " : " + String(flag_smoke[i]));
+      Serial.print("\tSwitch" + String(i) + " : " + String(flag_switch[i]));
+      Serial.println("\tBatt" + String(i) + " : " + String(flag_batt[i]));
+      if (flag_batt[i])
+        LINE.notify("Battery " + node[i] + " Low");
 
-  vTaskSuspend(sentToLine_taskhandle);
+      if (flag_smoke[i])
+        LINE.notify("Smoke detected at " + node[i]);
+        
+
+      if (flag_switch[i])
+        LINE.notify("SOS from " + node[i]);
+    }
+
+    Serial.println("sent to Line");
+    vTaskSuspend(sentToLine_taskhandle);
   }
 }
 
@@ -321,9 +339,9 @@ void sentInternet_task(void *pvParam)
     if (flag_danger || flag_net)
     {
       flag_ack[0] = true;
+      vTaskResume(sentToLine_taskhandle);
       vTaskResume(sentToBlynk_taskhandle);
-      Serial.println("sent to blynk");
-      sentToFirebase();
+      vTaskResume(sentToFirebase_taskhandle);
 
       flag_net = false;
       flag_danger = false;
@@ -374,9 +392,9 @@ void setup()
   vTaskSuspend(req_taskhandle);
   xTaskCreatePinnedToCore(sentToFirebase_task, "sentToFirebase_task", 10000, NULL, 1, &sentToFirebase_taskhandle, 1);
   vTaskSuspend(sentToFirebase_taskhandle);
-  xTaskCreatePinnedToCore(sentToLine_task, "sentToLine_task", 3000, NULL, 1, &sentToLine_taskhandle, 1);
+  xTaskCreatePinnedToCore(sentToLine_task, "sentToLine_task", 10000, NULL, 1, &sentToLine_taskhandle, 1);
   vTaskSuspend(sentToLine_taskhandle);
-  
+
   // xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
 
   pinMode(SW_pin, INPUT);
