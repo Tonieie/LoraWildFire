@@ -40,7 +40,9 @@ boolean flag_smoke[3] = {false, false, false};
 boolean flag_ack[3] = {false, false, false};
 boolean flag_net = false;
 boolean flag_danger = false;
-boolean flag_isOK = false;
+
+
+uint8_t led_req = 0;
 
 #define sw_bit 0
 #define smoke_bit 1
@@ -173,6 +175,7 @@ void readCritical()
   if (digitalRead(SW_pin) == LOW)
   {
     flag_switch[0] = true;
+    flag_danger = true;
   }
   else
     flag_switch[0] = false;
@@ -218,7 +221,7 @@ void req_task(void *pvParam)
     while (flag_ack[1] == false && try_count < MAXIMUM_TRY)
     {
       try_count++;
-      sentToNd('1', 0xFF);
+      sentToNd('1', led_req);
       Serial.println("try node1 : " + String(try_count));
       vTaskDelay(pdMS_TO_TICKS(10000));
     }
@@ -226,7 +229,7 @@ void req_task(void *pvParam)
     while (flag_ack[2] == false && try_count < MAXIMUM_TRY)
     {
       try_count++;
-      sentToNd('2', 0xFF);
+      sentToNd('2', led_req);
       Serial.println("try node2 : " + String(try_count));
       vTaskDelay(pdMS_TO_TICKS(10000));
     }
@@ -331,23 +334,39 @@ void sentInternet_task(void *pvParam)
       Serial.println("Failed to obtain time");
     }
 
-    if (current_time.tm_hour == 13 && current_time.tm_min == 6 && current_time.tm_sec <= 10)
+    if (current_time.tm_hour%4 == 0 && current_time.tm_min == 0 && current_time.tm_sec <= 10)
     {
+      led_req = 0;
+      vTaskResume(req_taskhandle);
+    }
+    else if(current_time.tm_hour == 18 && current_time.tm_min == 0 && current_time.tm_sec <= 10)
+    {
+      led_req = 0xFF;
       vTaskResume(req_taskhandle);
     }
 
+
+    readCritical();
     if (flag_danger || flag_net)
     {
+      readDHT();
+      readBatt();
       flag_ack[0] = true;
+
       vTaskResume(sentToLine_taskhandle);
       vTaskResume(sentToBlynk_taskhandle);
       vTaskResume(sentToFirebase_taskhandle);
 
       flag_net = false;
       flag_danger = false;
-      flag_ack[0] = false;
-      flag_ack[1] = false;
-      flag_ack[2] = false;
+      for (uint8_t i = 0; i < 3; i++)
+      {
+        flag_ack[i] = false;
+        flag_batt[i] = false;
+        flag_smoke[i] = false;
+        flag_switch[i] = false;
+      }
+
     }
 
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -394,8 +413,6 @@ void setup()
   vTaskSuspend(sentToFirebase_taskhandle);
   xTaskCreatePinnedToCore(sentToLine_task, "sentToLine_task", 10000, NULL, 1, &sentToLine_taskhandle, 1);
   vTaskSuspend(sentToLine_taskhandle);
-
-  // xTaskCreatePinnedToCore(net_task, "net_task", 10000, NULL, 1, &net_taskhandle, 0);
 
   pinMode(SW_pin, INPUT);
 }
