@@ -103,11 +103,13 @@ void readBatt()
   digitalWrite(18, LOW);
   float v_batt = (float)analogRead(4);
   v_batt = v_batt / 4095.0f * 2 * 3.3f;
-
+  digitalWrite(18, HIGH);
+  
   if (v_batt <= 3.7f)
     setBit(&util_byte, batt_bit);
   else
     clearBit(&util_byte, batt_bit);
+
 }
 
 void readDHT()
@@ -179,7 +181,6 @@ void setup()
   }
 
   dht.begin();
-
   pinMode(LED, OUTPUT);
 
   xTaskCreatePinnedToCore(sentToGw, "sentToGw", 2000, NULL, 1, &sentToGw_handle, 0);
@@ -192,5 +193,4 @@ void setup()
 
 void loop()
 {
-  // readMQ();
 }
