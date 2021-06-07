@@ -178,7 +178,6 @@ void readBatt()
     flag_batt[0] = false;
 }
 
-
 boolean readSmoke()
 {
   static int last_val = analogRead(MQPIN);
@@ -363,66 +362,72 @@ void sentFirebase(uint8_t node)
   Serial.println("sent to firebase " + String(node));
 }
 
-void sentInternet_task(void *pvParam)
-{
-  while (1)
-  {
+// void sentInternet_task(void *pvParam)
+// {
+//   while (1)
+//   {
 
-    while (!getLocalTime(&current_time))
-    {
-      Serial.println("Failed to obtain time");
-      vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+//     while (!getLocalTime(&current_time))
+//     {
+//       Serial.println("Failed to obtain time");
+//       vTaskDelay(pdMS_TO_TICKS(1000));
+//     }
 
-    if (current_time.tm_min == 0 && current_time.tm_sec <= 10)
-    {
-      if (current_time.tm_hour == 18 || current_time.tm_hour == 20 || current_time.tm_hour == 0 || current_time.tm_hour == 4)
-      {
-        reqNode(0xFF);
-      }
-      else if (current_time.tm_hour == 8 || current_time.tm_hour == 12 || current_time.tm_hour == 16)
-      {
-        reqNode(0);
-      }
-    }
+//     if (current_time.tm_min == 0 && current_time.tm_sec <= 10)
+//     {
+//       if (current_time.tm_hour == 18 || current_time.tm_hour == 20 || current_time.tm_hour == 0 || current_time.tm_hour == 4)
+//       {
+//         reqNode(0xFF);
+//       }
+//       else if (current_time.tm_hour == 8 || current_time.tm_hour == 12 || current_time.tm_hour == 16)
+//       {
+//         reqNode(0);
+//       }
+//     }
 
-    readCritical();
-    for (uint node = 0; node < 3; node++)
-    {
-      if (flag_danger[0])
-      {
-        readBatt();
-        flag_ack[0] = true;
-        sentLine(0);
-        sentBlynk(0);
-        sentFirebase(0);
-      }
-      else if (flag_danger[node])
-      {
-        sentLine(node);
-        sentBlynk(node);
-        sentFirebase(node);
-      }
+//     readCritical();
+//     for (uint node = 0; node < 3; node++)
+//     {
+//       if (flag_danger[0])
+//       {
+//         readBatt();
+//         flag_ack[0] = true;
+//         temp[0].asFloat = dht.readTemperature();
+//         humid[0].asFloat = dht.readHumidity();
+//         vTaskDelay(pdMS_TO_TICKS(2000));
+//         sentLine(0);
+//         sentBlynk(0);
+//         sentFirebase(0);
+//       }
+//       else if (flag_danger[node])
+//       {
+//         sentLine(node);
+//         sentBlynk(node);
+//         sentFirebase(node);
+//       }
 
-      flag_danger[node] = false;
-    }
+//       flag_danger[node] = false;
+//     }
 
-    if (flag_net)
-    {
-      readCritical();
-      readBatt();
-      flag_ack[0] = true;
+//     if (flag_net)
+//     {
+//       readCritical();
+//       readBatt();
+//       flag_ack[0] = true;
+//       temp[0].asFloat = dht.readTemperature();
+//       humid[0].asFloat = dht.readHumidity();
+//       vTaskDelay(pdMS_TO_TICKS(2000));
 
-      sentLine(3);
-      sentBlynk(3);
-      sentFirebase(3);
+//       sentLine(3);
+//       sentBlynk(3);
+//       sentFirebase(3);
 
-      flag_net = false;
-    }
+//       flag_net = false;
+//     }
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
-}
+//     vTaskDelay(pdMS_TO_TICKS(1000));
+//   }
+// }
 
 void setup()
 {
@@ -497,8 +502,6 @@ void setup()
 
   xTaskCreatePinnedToCore(blynk_task, "blynk_task", 10000, NULL, 1, &blynk_taskhandle, 0);
 
-  xTaskCreatePinnedToCore(sentInternet_task, "sentInternet_task", 50000, NULL, 1, &sentInternet_taskhandle, 1);
-  // xTaskCreatePinnedToCore(dht_task, "dht_task", 2000, NULL, 1, &dht_taskhandle, 1);
 
   digitalWrite(LEDPin, HIGH);
   delay(2000);
@@ -507,8 +510,67 @@ void setup()
 
 void loop()
 {
-  // Serial.println("temp : " + String(dht.readTemperature()));
-  temp[0].asFloat = dht.readTemperature();
-  humid[0].asFloat = dht.readHumidity();
-  vTaskDelay(pdMS_TO_TICKS(2000));
+  static uint32_t last_time = millis();
+  if (millis() - last_time >= 1000)
+  {
+    last_time = millis();
+    if (!getLocalTime(&current_time))
+    {
+      Serial.println("Failed to obtain time");
+    }
+
+    if (current_time.tm_min == 0 && current_time.tm_sec <= 10)
+    {
+      if (current_time.tm_hour == 18 || current_time.tm_hour == 20 || current_time.tm_hour == 0 || current_time.tm_hour == 4)
+      {
+        reqNode(0xFF);
+      }
+      else if (current_time.tm_hour == 8 || current_time.tm_hour == 12 || current_time.tm_hour == 16)
+      {
+        reqNode(0);
+      }
+    }
+
+    readCritical();
+    for (uint node = 0; node < 3; node++)
+    {
+      if (flag_danger[0])
+      {
+        readBatt();
+        flag_ack[0] = true;
+        temp[0].asFloat = dht.readTemperature();
+        humid[0].asFloat = dht.readHumidity();
+        Serial.println("temp : " + String(temp[0].asFloat));
+        Serial.println("humid : " + String(humid[0].asFloat));
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        sentLine(0);
+        sentBlynk(0);
+        sentFirebase(0);
+      }
+      else if (flag_danger[node])
+      {
+        sentLine(node);
+        sentBlynk(node);
+        sentFirebase(node);
+      }
+
+      flag_danger[node] = false;
+    }
+
+    if (flag_net)
+    {
+      readCritical();
+      readBatt();
+      flag_ack[0] = true;
+      temp[0].asFloat = dht.readTemperature();
+      humid[0].asFloat = dht.readHumidity();
+      vTaskDelay(pdMS_TO_TICKS(2000));
+
+      sentLine(3);
+      sentBlynk(3);
+      sentFirebase(3);
+
+      flag_net = false;
+    }
+  }
 }
