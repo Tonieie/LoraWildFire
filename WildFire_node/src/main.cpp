@@ -36,7 +36,7 @@ union FloatToByte
 FloatToByte temp, humid;
 uint8_t util_byte = 0;
 
-#define node_number 2
+#define node_number 1
 #define sw_bit 0
 #define smoke_bit 1
 #define batt_bit 2
