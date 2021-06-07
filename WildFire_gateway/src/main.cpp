@@ -43,9 +43,11 @@ boolean flag_smoke[3] = {false, false, false};
 boolean flag_ack[3] = {false, false, false};
 boolean flag_danger[3] = {false, false, false};
 boolean flag_net = false;
+boolean blynk_req = false;
 
-uint8_t util_byte = 0;
-uint8_t last_util_byte = 0;
+uint8_t util_byte[3] = {0};
+uint8_t last_util_byte[3] = {0};
+uint8_t blynk_req_led = 0;
 
 #define sw_bit 0
 #define smoke_bit 1
@@ -135,10 +137,10 @@ void onReceive(int packetSize)
         flag_batt[node_num] = (buffer[index - 1] >> batt_bit) & 0x01;
         flag_smoke[node_num] = (buffer[index - 1] >> smoke_bit) & 0x01;
         flag_switch[node_num] = (buffer[index - 1] >> sw_bit) & 0x01;
-        util_byte = buffer[index - 1];
-        if (util_byte != last_util_byte)
+        util_byte[node_num] = buffer[index - 1];
+        if (util_byte[node_num] != last_util_byte[node_num])
         {
-          last_util_byte = util_byte;
+          last_util_byte[node_num] = util_byte[node_num];
           flag_danger[node_num] = true;
         }
         flag_ack[node_num] = true;
@@ -233,15 +235,44 @@ void blynk_task(void *pvParam)
   while (1)
   {
     Blynk.run();
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
+
+BLYNK_WRITE(V8)
+{
+  if(param.asInt())
+  {
+    blynk_req = true;
+    blynk_req_led = 0xFF;
+  }
+}
+
+BLYNK_WRITE(V9)
+{
+ if(param.asInt())
+  {
+    blynk_req = true;
+    blynk_req_led = 0;
+  }
+}
+
+BLYNK_WRITE(V10)
+{
+ if(param.asInt())
+  {
+    ESP.restart();
+  }
+}
+
 
 //----------CPU1 Tasks----------//
 
 void reqNode(uint8_t led_req)
 {
   uint8_t try_count = 0;
+  flag_ack[1] = false;
+  flag_ack[2] = false;
   while (flag_ack[1] == false && try_count < MAXIMUM_TRY)
   {
     try_count++;
@@ -301,11 +332,16 @@ void sentBlynk(uint8_t node)
     Blynk.virtualWrite(5, humid[1].asFloat);
     Blynk.virtualWrite(6, temp[2].asFloat);
     Blynk.virtualWrite(7, humid[2].asFloat);
+
+    Blynk.virtualWrite(11, flag_ack[0]*255);
+    Blynk.virtualWrite(12, flag_ack[1]*255);
+    Blynk.virtualWrite(13, flag_ack[2]*255);
   }
   else if (node >= 0 && node <= 2)
   {
     Blynk.virtualWrite(2 + (node * 2), temp[node].asFloat);
     Blynk.virtualWrite(3 + (node * 2), humid[node].asFloat);
+    Blynk.virtualWrite(11+node, flag_ack[node]);
   }
 
   Serial.println("sent to blynk " + String(node));
@@ -361,73 +397,6 @@ void sentFirebase(uint8_t node)
 
   Serial.println("sent to firebase " + String(node));
 }
-
-// void sentInternet_task(void *pvParam)
-// {
-//   while (1)
-//   {
-
-//     while (!getLocalTime(&current_time))
-//     {
-//       Serial.println("Failed to obtain time");
-//       vTaskDelay(pdMS_TO_TICKS(1000));
-//     }
-
-//     if (current_time.tm_min == 0 && current_time.tm_sec <= 10)
-//     {
-//       if (current_time.tm_hour == 18 || current_time.tm_hour == 20 || current_time.tm_hour == 0 || current_time.tm_hour == 4)
-//       {
-//         reqNode(0xFF);
-//       }
-//       else if (current_time.tm_hour == 8 || current_time.tm_hour == 12 || current_time.tm_hour == 16)
-//       {
-//         reqNode(0);
-//       }
-//     }
-
-//     readCritical();
-//     for (uint node = 0; node < 3; node++)
-//     {
-//       if (flag_danger[0])
-//       {
-//         readBatt();
-//         flag_ack[0] = true;
-//         temp[0].asFloat = dht.readTemperature();
-//         humid[0].asFloat = dht.readHumidity();
-//         vTaskDelay(pdMS_TO_TICKS(2000));
-//         sentLine(0);
-//         sentBlynk(0);
-//         sentFirebase(0);
-//       }
-//       else if (flag_danger[node])
-//       {
-//         sentLine(node);
-//         sentBlynk(node);
-//         sentFirebase(node);
-//       }
-
-//       flag_danger[node] = false;
-//     }
-
-//     if (flag_net)
-//     {
-//       readCritical();
-//       readBatt();
-//       flag_ack[0] = true;
-//       temp[0].asFloat = dht.readTemperature();
-//       humid[0].asFloat = dht.readHumidity();
-//       vTaskDelay(pdMS_TO_TICKS(2000));
-
-//       sentLine(3);
-//       sentBlynk(3);
-//       sentFirebase(3);
-
-//       flag_net = false;
-//     }
-
-//     vTaskDelay(pdMS_TO_TICKS(1000));
-//   }
-// }
 
 void setup()
 {
@@ -506,13 +475,16 @@ void setup()
   digitalWrite(LEDPin, HIGH);
   delay(2000);
   digitalWrite(LEDPin, LOW);
+  delay(1000);
 }
 
 void loop()
 {
   static uint32_t last_time = millis();
+  static boolean first_time = true;
   if (millis() - last_time >= 1000)
   {
+
     last_time = millis();
     if (!getLocalTime(&current_time))
     {
@@ -523,11 +495,41 @@ void loop()
     {
       if (current_time.tm_hour == 18 || current_time.tm_hour == 20 || current_time.tm_hour == 0 || current_time.tm_hour == 4)
       {
+        digitalWrite(LEDPin,HIGH);
         reqNode(0xFF);
       }
-      else if (current_time.tm_hour == 8 || current_time.tm_hour == 12 || current_time.tm_hour == 16)
+      else if (current_time.tm_hour == 6 || current_time.tm_hour == 8 || current_time.tm_hour == 12 || current_time.tm_hour == 16)
       {
+        digitalWrite(LEDPin,LOW);
         reqNode(0);
+      }
+    }
+
+    if(first_time)
+    {
+      if(current_time.tm_hour >= 18 || current_time.tm_hour < 6)
+      {
+        digitalWrite(LEDPin,HIGH);
+        reqNode(0xFF);
+      }
+      else
+      {
+        digitalWrite(LEDPin,LOW);
+        reqNode(0);
+      }
+      first_time = false;
+    }
+
+    if(blynk_req)
+    {
+      static uint32_t last_req = 0;
+      if(millis() - last_req >= 15000)
+      {
+        last_req = millis();
+        blynk_req = false;
+        digitalWrite(LEDPin,blynk_req_led>>7);
+        Serial.println("Request from blynk");
+        reqNode(blynk_req_led);
       }
     }
 
@@ -540,8 +542,6 @@ void loop()
         flag_ack[0] = true;
         temp[0].asFloat = dht.readTemperature();
         humid[0].asFloat = dht.readHumidity();
-        Serial.println("temp : " + String(temp[0].asFloat));
-        Serial.println("humid : " + String(humid[0].asFloat));
         vTaskDelay(pdMS_TO_TICKS(2000));
         sentLine(0);
         sentBlynk(0);
@@ -553,7 +553,6 @@ void loop()
         sentBlynk(node);
         sentFirebase(node);
       }
-
       flag_danger[node] = false;
     }
 
@@ -571,6 +570,9 @@ void loop()
       sentFirebase(3);
 
       flag_net = false;
+      flag_ack[0] = false;
+      flag_ack[1] = false;
+      flag_ack[2] = false;
     }
   }
 }
