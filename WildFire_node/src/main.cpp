@@ -9,11 +9,14 @@
 #define SS 27
 #define RST 26
 #define DIO0 25
-#define LEDPin 23
 
+
+#define MQPIN 2
 #define DHTPIN 15
 #define SW_pin 19
-#define LED 23
+#define BattPin 18
+#define LEDPin 23
+#define BattadcPin 4
 
 //----------CPU0 Handle----------//
 TaskHandle_t sentToGw_handle = NULL;
@@ -41,6 +44,7 @@ uint8_t util_byte = 0;
 #define led_bit 3
 
 boolean sent_flag = false;
+boolean last_switch,last_smoke = false;
 
 //----------Gateway - Node functions----------//
 void LoRa_rxMode()
@@ -69,9 +73,9 @@ void onReceive(int packetSize)
         index = 0;
 
       if (buffer[index] == 0xFF)
-        digitalWrite(LED, HIGH);
+        digitalWrite(LEDPin, HIGH);
       else
-        digitalWrite(LED, LOW);
+        digitalWrite(LEDPin, LOW);
 
       sent_flag = true;
 
@@ -101,36 +105,75 @@ void clearBit(uint8_t *data, uint8_t bit)
 void readBatt()
 {
   digitalWrite(18, LOW);
-  float v_batt = (float)analogRead(4);
-  v_batt = v_batt / 4095.0f * 2 * 3.3f;
-  digitalWrite(18, HIGH);
-  
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  float v_batt = 0;
+  for(uint8_t read_cnt = 0;read_cnt <100; read_cnt++)
+  {
+    v_batt += (float)analogRead(BattadcPin);
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  v_batt /= 100; 
+  v_batt = v_batt/ 4095.0f * 2 * 3.3f + 0.2f;
+
+  Serial.println("batt : " + String(v_batt));
   if (v_batt <= 3.7f)
     setBit(&util_byte, batt_bit);
   else
     clearBit(&util_byte, batt_bit);
-
 }
 
 void readDHT()
 {
   temp.asFloat = dht.readTemperature();
   humid.asFloat = dht.readHumidity();
+  Serial.println("temp : " + String(temp.asFloat) + "/t humid : " + String(humid.asFloat)); 
+}
+
+boolean readSmoke()
+{
+  static int last_val = analogRead(MQPIN);
+  int current_val = 0;
+  for(uint8_t read_cnt = 0;read_cnt <100; read_cnt++)
+  {
+    current_val += analogRead(MQPIN);
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  current_val /= 100;
+  if(abs(current_val - last_val) >= 150)
+  {
+    last_val = current_val;
+    return true;
+  }
+  else
+  {
+    last_val = current_val;
+    return false;
+  }
 }
 
 void readCritical()
 {
-  if (digitalRead(SW_pin) == LOW)
+  boolean current_switch = !digitalRead(SW_pin); //true = pressed
+  if (current_switch != last_switch)
   {
-    setBit(&util_byte, sw_bit);
+    Serial.println("switch toggled");
+    last_switch = current_switch;
+    current_switch == true? setBit(&util_byte, sw_bit) : clearBit(&util_byte, sw_bit);
     sent_flag = true;
   }
-  else
-    clearBit(&util_byte, sw_bit);
+
+  boolean current_smoke = readSmoke();
+  if (current_smoke != last_smoke)
+  {
+    Serial.println("smoke toggled");
+    last_smoke = current_smoke;
+    current_smoke == true? setBit(&util_byte, current_smoke) : clearBit(&util_byte, current_smoke);
+    sent_flag = true;
+  }
 
 }
 
-//----------CPU0 Task----------//
+//----------CPU1 Task----------//
 void sentToGw(void *pvParam)
 {
   while (1)
@@ -166,7 +209,6 @@ void sentToGw(void *pvParam)
 
 void setup()
 {
-  pinMode(LEDPin, OUTPUT);
 
   Serial.begin(9600);
 
@@ -181,9 +223,11 @@ void setup()
   }
 
   dht.begin();
-  pinMode(LED, OUTPUT);
+  pinMode(LEDPin, OUTPUT);
+  pinMode(BattPin,OUTPUT);
+  pinMode(SW_pin,INPUT);
 
-  xTaskCreatePinnedToCore(sentToGw, "sentToGw", 2000, NULL, 1, &sentToGw_handle, 0);
+  xTaskCreatePinnedToCore(sentToGw, "sentToGw", 2000, NULL, 1, &sentToGw_handle, 1);
 
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
@@ -193,4 +237,5 @@ void setup()
 
 void loop()
 {
+
 }
