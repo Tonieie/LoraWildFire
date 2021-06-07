@@ -35,7 +35,6 @@ union FloatToByte
   uint8_t asByte[4];
 };
 FloatToByte temp[3], humid[3];
-
 DHT dht(DHTPIN, DHT11);
 
 boolean flag_batt[3] = {false, false, false};
@@ -76,13 +75,10 @@ uint8_t firebase_index[3];
 struct tm current_time;
 
 //----------Task Handle----------//
-TaskHandle_t req_taskhandle = NULL;
 TaskHandle_t sentInternet_taskhandle = NULL;
-TaskHandle_t sentToFirebase_taskhandle = NULL;
-TaskHandle_t sentToLine_taskhandle = NULL;
+TaskHandle_t dht_taskhandle = NULL;
 
 TaskHandle_t blynk_taskhandle = NULL;
-TaskHandle_t sentToBlynk_taskhandle = NULL;
 //----------LoRa Tasks----------//
 void LoRa_rxMode()
 {
@@ -140,7 +136,7 @@ void onReceive(int packetSize)
         flag_smoke[node_num] = (buffer[index - 1] >> smoke_bit) & 0x01;
         flag_switch[node_num] = (buffer[index - 1] >> sw_bit) & 0x01;
         util_byte = buffer[index - 1];
-        if(util_byte != last_util_byte)
+        if (util_byte != last_util_byte)
         {
           last_util_byte = util_byte;
           flag_danger[node_num] = true;
@@ -182,12 +178,6 @@ void readBatt()
     flag_batt[0] = false;
 }
 
-void readDHT()
-{
-  temp[0].asFloat = dht.readTemperature();
-  humid[0].asFloat = dht.readHumidity();
-  Serial.println("temp : " + String(temp[0].asFloat) + "/t humid : " + String(humid[0].asFloat));
-}
 
 boolean readSmoke()
 {
@@ -378,7 +368,7 @@ void sentInternet_task(void *pvParam)
   while (1)
   {
 
-    while(!getLocalTime(&current_time))
+    while (!getLocalTime(&current_time))
     {
       Serial.println("Failed to obtain time");
       vTaskDelay(pdMS_TO_TICKS(1000));
@@ -401,14 +391,13 @@ void sentInternet_task(void *pvParam)
     {
       if (flag_danger[0])
       {
-        readDHT();
         readBatt();
         flag_ack[0] = true;
         sentLine(0);
         sentBlynk(0);
         sentFirebase(0);
       }
-      else if(flag_danger[node])
+      else if (flag_danger[node])
       {
         sentLine(node);
         sentBlynk(node);
@@ -421,7 +410,6 @@ void sentInternet_task(void *pvParam)
     if (flag_net)
     {
       readCritical();
-      readDHT();
       readBatt();
       flag_ack[0] = true;
 
@@ -461,6 +449,7 @@ void setup()
   config.database_url = DATABASE_URL;
   config.token_status_callback = tokenStatusCallback;
   Firebase.begin(&config, &auth);
+  delay(5000);
 
   Firebase.getArray(fbdo, "/gateway");
   data_arr[0] = fbdo.jsonArray();
@@ -471,7 +460,20 @@ void setup()
   firebase_index[0] = data_arr[0].size();
   firebase_index[1] = data_arr[1].size();
   firebase_index[2] = data_arr[2].size();
-  delay(10000);
+  delay(5000);
+  if (firebase_index[0] == 0 || firebase_index[1] == 0 || firebase_index[2] == 0)
+  {
+    Firebase.getArray(fbdo, "/gateway");
+    data_arr[0] = fbdo.jsonArray();
+    Firebase.getArray(fbdo, "/node1");
+    data_arr[1] = fbdo.jsonArray();
+    Firebase.getArray(fbdo, "/node2");
+    data_arr[2] = fbdo.jsonArray();
+    firebase_index[0] = data_arr[0].size();
+    firebase_index[1] = data_arr[1].size();
+    firebase_index[2] = data_arr[2].size();
+    delay(5000);
+  }
 
   //setup LoRa module (sx1276) with frequency 923.2 MHz
   SPI.begin(SCK, MISO, MOSI, SS);
@@ -496,6 +498,7 @@ void setup()
   xTaskCreatePinnedToCore(blynk_task, "blynk_task", 10000, NULL, 1, &blynk_taskhandle, 0);
 
   xTaskCreatePinnedToCore(sentInternet_task, "sentInternet_task", 50000, NULL, 1, &sentInternet_taskhandle, 1);
+  // xTaskCreatePinnedToCore(dht_task, "dht_task", 2000, NULL, 1, &dht_taskhandle, 1);
 
   digitalWrite(LEDPin, HIGH);
   delay(2000);
@@ -504,4 +507,8 @@ void setup()
 
 void loop()
 {
+  // Serial.println("temp : " + String(dht.readTemperature()));
+  temp[0].asFloat = dht.readTemperature();
+  humid[0].asFloat = dht.readHumidity();
+  vTaskDelay(pdMS_TO_TICKS(2000));
 }
