@@ -10,7 +10,6 @@
 #define RST 26
 #define DIO0 25
 
-
 #define MQPIN 2
 #define DHTPIN 15
 #define SW_pin 19
@@ -37,14 +36,14 @@ union FloatToByte
 FloatToByte temp, humid;
 uint8_t util_byte = 0;
 
-#define node_number 1
+#define node_number 2
 #define sw_bit 0
 #define smoke_bit 1
 #define batt_bit 2
 #define led_bit 3
 
 boolean sent_flag = false;
-boolean last_switch,last_smoke = false;
+
 
 //----------Gateway - Node functions----------//
 void LoRa_rxMode()
@@ -107,15 +106,15 @@ void readBatt()
   digitalWrite(18, LOW);
   vTaskDelay(pdMS_TO_TICKS(1000));
   float v_batt = 0;
-  for(uint8_t read_cnt = 0;read_cnt <100; read_cnt++)
+  for (uint8_t read_cnt = 0; read_cnt < 100; read_cnt++)
   {
     v_batt += (float)analogRead(BattadcPin);
     vTaskDelay(pdMS_TO_TICKS(10));
   }
   digitalWrite(18, HIGH);
 
-  v_batt /= 100; 
-  v_batt = v_batt/ 4095.0f * 2 * 3.3f + 0.2f;
+  v_batt /= 100;
+  v_batt = v_batt / 4095.0f * 2 * 3.3f + 0.2f;
 
   Serial.println("batt : " + String(v_batt));
   if (v_batt <= 3.7f)
@@ -128,20 +127,20 @@ void readDHT()
 {
   temp.asFloat = dht.readTemperature();
   humid.asFloat = dht.readHumidity();
-  Serial.println("temp : " + String(temp.asFloat) + "/t humid : " + String(humid.asFloat)); 
+  Serial.println("temp : " + String(temp.asFloat) + "/t humid : " + String(humid.asFloat));
 }
 
 boolean readSmoke()
 {
   static int last_val = analogRead(MQPIN);
   int current_val = 0;
-  for(uint8_t read_cnt = 0;read_cnt <100; read_cnt++)
+  for (uint8_t read_cnt = 0; read_cnt < 100; read_cnt++)
   {
     current_val += analogRead(MQPIN);
     vTaskDelay(pdMS_TO_TICKS(10));
   }
   current_val /= 100;
-  if(abs(current_val - last_val) >= 150)
+  if (abs(current_val - last_val) >= 50)
   {
     last_val = current_val;
     return true;
@@ -155,12 +154,15 @@ boolean readSmoke()
 
 void readCritical()
 {
+  static boolean last_switch = !digitalRead(SW_pin);
+  static boolean last_smoke = readSmoke();
+
   boolean current_switch = !digitalRead(SW_pin); //true = pressed
   if (current_switch != last_switch)
   {
     Serial.println("switch toggled");
     last_switch = current_switch;
-    current_switch == true? setBit(&util_byte, sw_bit) : clearBit(&util_byte, sw_bit);
+    current_switch == true ? setBit(&util_byte, sw_bit) : clearBit(&util_byte, sw_bit);
     sent_flag = true;
   }
 
@@ -169,43 +171,8 @@ void readCritical()
   {
     Serial.println("smoke toggled");
     last_smoke = current_smoke;
-    current_smoke == true? setBit(&util_byte, current_smoke) : clearBit(&util_byte, current_smoke);
+    current_smoke == true ? setBit(&util_byte, smoke_bit) : clearBit(&util_byte, smoke_bit);
     sent_flag = true;
-  }
-
-}
-
-//----------CPU1 Task----------//
-void sentToGw(void *pvParam)
-{
-  while (1)
-  {
-    readCritical();
-    if (sent_flag == true)
-    {
-      readDHT();
-      readBatt();
-      uint8_t checksum = 0;
-      uint8_t payload[] = {'n', '0' + node_number,
-                           temp.asByte[0], temp.asByte[1], temp.asByte[2], temp.asByte[3],
-                           humid.asByte[0], humid.asByte[1], humid.asByte[2], humid.asByte[3],
-                           util_byte};
-      LoRa_txMode();
-      LoRa.beginPacket();
-      for (int i = 0; i < sizeof(payload); i++)
-      {
-        LoRa.write(payload[i]);
-        checksum += payload[i];
-      }
-      checksum = ~(checksum) + 1;
-      LoRa.write(checksum);
-      LoRa.endPacket(true);
-
-      sent_flag = false;
-      Serial.println("sent");
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 
@@ -226,10 +193,8 @@ void setup()
 
   dht.begin();
   pinMode(LEDPin, OUTPUT);
-  pinMode(BattPin,OUTPUT);
-  pinMode(SW_pin,INPUT);
-
-  xTaskCreatePinnedToCore(sentToGw, "sentToGw", 2000, NULL, 1, &sentToGw_handle, 1);
+  pinMode(BattPin, OUTPUT);
+  pinMode(SW_pin, INPUT);
 
   LoRa.onReceive(onReceive);
   LoRa.onTxDone(onTxDone);
@@ -239,5 +204,37 @@ void setup()
 
 void loop()
 {
+  static uint32_t lasttime,last_sent = millis();
+  if (millis() - lasttime >= 1000)  //run every 1 second
+  {
+    lasttime = millis();
+    
+    readCritical();
+    if (sent_flag == true && (millis() - last_sent >= 15000))
+    {
+      readCritical();
+      readDHT();
+      readBatt();
+      uint8_t checksum = 0;
+      uint8_t payload[] = {'n', '0' + node_number,
+                           temp.asByte[0], temp.asByte[1], temp.asByte[2], temp.asByte[3],
+                           humid.asByte[0], humid.asByte[1], humid.asByte[2], humid.asByte[3],
+                           util_byte};
+      LoRa_txMode();
+      LoRa.beginPacket();
+      for (int i = 0; i < sizeof(payload); i++)
+      {
+        LoRa.write(payload[i]);
+        checksum += payload[i];
+      }
+      checksum = ~(checksum) + 1;
+      LoRa.write(checksum);
+      LoRa.endPacket(true);
 
+      sent_flag = false;
+      Serial.println("sent");
+
+      last_sent = millis();
+    }
+  }
 }
