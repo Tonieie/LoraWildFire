@@ -54,16 +54,6 @@ uint8_t blynk_req_led = 0;
 #define batt_bit 2
 
 //----------Firebase & WiFi----------//
-#define WIFI_SSID "tonieie"
-#define WIFI_PASSWORD "maibork555"
-
-#define API_KEY "AIzaSyDvs4yCvhcPnYBcGcL8svJMnOBWrts9vmg"
-#define DATABASE_URL "lorawildfire-default-rtdb.asia-southeast1.firebasedatabase.app"
-#define USER_EMAIL "s6201011620127@email.kmutnb.ac.th"
-#define USER_PASSWORD "78787862x"
-
-#define Blynk_TOKEN "6IcpR9OcnSMVpMRdY0VOIQ1CGN-eyHRH"
-#define LINE_TOKEN "v4S7Qkx1WAwGM1zIVgMLjYNS2sGKKqjDI6DgmTi49Dp"
 
 #define MAXIMUM_TRY 5
 
